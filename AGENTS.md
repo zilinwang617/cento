@@ -19,3 +19,4 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 - Double-clicking empty left-tray space opens the existing text input. Change Style changes the palette, and Export saves only the composed page. No backend, persistence or deployment is required.
 - Target the desktop experience only; do not create or QA a dedicated mobile layout.
 - Libraries are allowed; the user does not require a native-CSS-only implementation. Prioritize showing a working visual iteration before exhaustive debugging unless asked otherwise.
+- Paper strips should not show a dashed focus outline when clicked or dragged; use the existing lift and shadow as drag feedback.

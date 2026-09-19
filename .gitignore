@@ -1,11 +1,12 @@
 # Dependencies
 node_modules/
+package-lock.json
+docs/qa/
 
 # Build output
 dist/
 
 # Local package-manager cache
-.pnpm-store/
 
 # Temporary and local-only files
 .tmp/
