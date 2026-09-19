@@ -7,10 +7,20 @@ export const THEMES = [
   { id: "poppy", name: "Poppy", page: "#cd594b", back: "#d9b8da", strip: "#f5f1df", ink: "#48413d" },
   { id: "midnight", name: "Midnight", page: "#253c59", back: "#c5b38a", strip: "#e8c77e", ink: "#253c59" },
 ];
+const EXAMPLE_TEXT = [
+  "the quiet between things", "stay", "a little longer", "blue", "as the afternoon",
+  "nothing is ever quite still", "almost", "home", "where the light lands",
+  "I kept the small things", "in my pocket", "rain", "and the sound of your name",
+  "again", "somewhere beyond the window", "softly", "we begin", "the sea remembers",
+  "what the shore forgets", "here", "a borrowed bit of sky", "slow", "down",
+  "there is room for wonder", "under the same moon", "breathe", "between two ordinary days",
+  "a small bright thing", "found", "the morning comes undone", "with you", "still",
+];
 export const INITIAL_NOTES = [
-  { id: "note-1", text: "text", x: 636.031, y: 255.181, width: 117.213, height: 43, angle: 5, z: 10 },
-  { id: "note-2", text: "longer text and such", x: 859.568, y: 251.944, width: 302.437, height: 43, angle: -2, z: 11 },
-  { id: "note-3", text: "a much longer text and such", x: 77.66, y: 199.143, width: 295.479, height: 43, angle: -2, z: 12 },
+  { id: "note-1", location: "desk", text: "text", x: 636.031, y: 255.181, width: 117.213, height: 43, angle: 5, z: 10 },
+  { id: "note-2", location: "desk", text: "longer text and such", x: 859.568, y: 251.944, width: 302.437, height: 43, angle: -2, z: 11 },
+  { id: "note-3", location: "tray", text: "a much longer text and such", x: 77.66, y: 199.143, width: 295.479, height: 43, angle: -2, z: 12 },
+  ...placeCuts(EXAMPLE_TEXT, EXAMPLE_TEXT.map((text) => text.length * 9.5)).map((note, index) => ({ ...note, id: `note-${index + 4}`, z: index + 13 })),
 ];
 export const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value));
 
@@ -37,7 +47,7 @@ export function isOnPage(note) {
 }
 
 export function noteColors(note, theme) {
-  const onPage = note.colorSource ? note.colorSource === "page" : isOnPage(note);
+  const onPage = note.location === "tray" ? false : note.colorSource ? note.colorSource === "page" : isOnPage(note);
   return onPage ? { paper: theme.strip, ink: theme.ink } : { paper: "#1a3b9e", ink: "#ffffff" };
 }
 
@@ -45,18 +55,12 @@ export function cutText(text, mode = "words") {
   return text.split(mode === "lines" ? /\r?\n/ : /\s+/u).map((part) => part.trim()).filter(Boolean);
 }
 
-export function placeCuts(pieces, measuredWidths, existingCount = 0) {
-  // Scatter in short rows; repeated batches occupy another offset rather than the same pile.
-  let x = 42 + (existingCount % 3) * 7;
-  let y = 78 + (Math.floor(existingCount / 3) % 6) * 62;
+export function placeCuts(pieces, measuredWidths) {
+  // Coordinates for tray notes are derived by packTray, never scattered or wrapped.
   return pieces.map((text, index) => {
     const textWidth = measuredWidths[index];
     const width = Math.min(382, Math.max(78, textWidth + 34));
     const fontSize = Math.min(18, 18 * (width - 34) / Math.max(1, textWidth));
-    if (x + width > 449) { x = 42; y += 62; }
-    if (y > 848) { y = 80 + (index % 4) * 11; x = 48 + (index % 3) * 9; }
-    const note = { text, x, y, width, height: 43, fontSize, angle: [-2, 1.5, -0.8, 2.4, -1.2][index % 5] };
-    x += width + 18;
-    return note;
+    return { text, location: "tray", x: 36, y: 68, width, textWidth, height: 43, fontSize, angle: 0 };
   });
 }

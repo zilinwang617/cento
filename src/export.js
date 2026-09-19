@@ -13,7 +13,7 @@ export async function renderPoem(notes, theme) {
   context.fillRect(0, 0, ARTBOARD.width, ARTBOARD.height);
   context.translate(-ARTBOARD.x, -ARTBOARD.y);
   // Clip to the page: tray, tools and off-page parts are never exported.
-  for (const note of [...notes].sort((a, b) => a.z - b.z)) {
+  for (const note of notes.filter((item) => item.location !== "tray").sort((a, b) => a.z - b.z)) {
     const colors = noteColors(note, theme);
     context.save();
     context.translate(note.x + note.width / 2, note.y + note.height / 2);

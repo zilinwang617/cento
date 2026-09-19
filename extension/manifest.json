@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "Cento",
+  "version": "0.1.0",
+  "description": "Collect selected words into a local cut-up poetry workspace.",
+  "minimum_chrome_version": "116",
+  "permissions": ["sidePanel", "storage", "contextMenus"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "service-worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Open Cento"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["collector.js"],
+      "all_frames": true,
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["http://localhost/*", "http://127.0.0.1/*"],
+      "js": ["main-bridge.js"],
+      "run_at": "document_start"
+    }
+  ]
+}
