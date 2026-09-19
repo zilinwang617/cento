@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
-import { WORLD, THEMES, INITIAL_NOTES, clamp, constrainNote, cutText, placeCuts, noteColors, isOnPage } from "./workspace.js";
+import { WORLD, THEMES, INITIAL_NOTES, clamp, constrainNote, placeCuts, noteColors, isOnPage } from "./workspace.js";
 import { CUT_HIT, wordRuns, paperLocalPoint, nearestCut, splitPaper } from "./cutting.js";
 import { exportPoem } from "./export.js";
 import { TRAY, packTray, insertAt, trayInsertionIndex, isInsideTray, trayScrollSpeed } from "./tray.js";
@@ -90,32 +90,6 @@ function PaperStrip({ note, theme, sceneRef, cutting, onCut, onPickUp, onKeyMove
     onPickUp(note, event, elementRef.current.getBoundingClientRect());
   };
 
-  const moveWithKeys = (event) => {
-    if (cutting) {
-      if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
-        event.preventDefault();
-        if (words.length < 2) return;
-        const currentIndex = words.findIndex((word) => word.end === cutTargetRef.current?.leftEnd);
-        const index = clamp(currentIndex + (event.key === "ArrowRight" ? 1 : -1), 0, words.length - 2);
-        showCutTarget(cutGapsRef.current[index] ?? null);
-      }
-      if ((event.key === "Enter" || event.key === " ") && cutTargetRef.current) {
-        event.preventDefault();
-        onCut(note.id, cutTargetRef.current);
-      }
-      return;
-    }
-    const direction = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[event.key];
-    if (direction) {
-      event.preventDefault();
-      onKeyMove(note, direction, event.shiftKey);
-    }
-    if (event.key === "Delete" || event.key === "Backspace") {
-      event.preventDefault();
-      onRemove(note.id);
-    }
-  };
-
   return (
     <div ref={elementRef} className={`paper-strip${inTray ? " is-in-tray" : ""}${drag ? " is-lifted drag-overlay" : ""}${cutting && words.length > 1 ? " is-cuttable" : ""}`}
       role="button" tabIndex={drag ? -1 : 0} aria-hidden={drag ? true : undefined} aria-label={`${cutting ? "Cut" : "Move"} paper: ${note.text}`} aria-describedby="paper-instructions"
@@ -129,7 +103,7 @@ function PaperStrip({ note, theme, sceneRef, cutting, onCut, onPickUp, onKeyMove
       onPointerDown={pickUp} onPointerMove={cutting ? previewCut : undefined}
       onPointerEnter={cutting ? previewCut : undefined} onPointerLeave={() => showCutTarget(null)} onBlur={() => showCutTarget(null)}
       onClick={(event) => { if (cutting) { const gap = cutAtPointer(event); if (gap) onCut(note.id, gap); } }}
-      onDoubleClick={(event) => event.stopPropagation()} onKeyDown={moveWithKeys}>
+      onDoubleClick={(event) => event.stopPropagation()}>
       <div className="paper-face">
         <span className="paper-text" ref={textRef} style={note.textOffset == null ? undefined : { left: note.textOffset, transform: "translateY(-50%)" }}>
           {words.map((word, index) => <Fragment key={word.start}>
@@ -141,57 +115,6 @@ function PaperStrip({ note, theme, sceneRef, cutting, onCut, onPickUp, onKeyMove
         {cutting && words.length > 1 && <span className="cut-guide" ref={cutGuideRef} hidden aria-hidden="true" />}
       </div>
     </div>
-  );
-}
-
-function TextDialog({ onClose, onCut }) {
-  const dialogRef = useRef(null);
-  const [text, setText] = useState("");
-  const [mode, setMode] = useState("lines");
-  const [error, setError] = useState("");
-  const pieces = cutText(text, mode);
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    dialog.showModal();
-    return () => dialog.close();
-  }, []);
-
-  const submit = async (event) => {
-    event.preventDefault();
-    if (!pieces.length) return;
-    const result = await onCut(pieces);
-    if (result) setError(result);
-    else onClose();
-  };
-
-  return (
-    <dialog className="cut-dialog" ref={dialogRef} onCancel={onClose} onClick={(event) => {
-      if (event.target === event.currentTarget) {
-        const rect = event.currentTarget.getBoundingClientRect();
-        if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) onClose();
-      }
-    }} aria-labelledby="cut-title">
-      <form onSubmit={submit}>
-        <button type="button" className="close-button" aria-label="Close text editor" onClick={onClose}>×</button>
-        <p className="eyebrow">A LITTLE LANGUAGE, REARRANGED</p>
-        <h1 id="cut-title">Bring a few words.</h1>
-        <label htmlFor="source-text">Start with a sentence, a poem, anything.</label>
-        <textarea id="source-text" value={text} autoFocus maxLength={4000}
-          onChange={(event) => { setText(event.target.value); setError(""); }}
-          placeholder={"the moon remembers\nwhat the morning forgets"} />
-        <fieldset className="cut-options">
-          <legend>Add as</legend>
-          <label><input type="radio" name="cut-mode" value="words" checked={mode === "words"} onChange={() => setMode("words")} /> Words</label>
-          <label><input type="radio" name="cut-mode" value="lines" checked={mode === "lines"} onChange={() => setMode("lines")} /> Lines</label>
-        </fieldset>
-        <div className="cut-footer">
-          <span>{pieces.length} {pieces.length === 1 ? "piece" : "pieces"} of possibility</span>
-          <button className="cut-submit" disabled={!pieces.length} type="submit">Add to desk</button>
-        </div>
-        <p className="form-error" role="alert">{error}</p>
-      </form>
-    </dialog>
   );
 }
 
@@ -215,7 +138,6 @@ export function App() {
   const [drag, setDrag] = useState(null);
   const [landing, setLanding] = useState(null);
   const [themeId, setThemeId] = useState("original");
-  const [textOpen, setTextOpen] = useState(false);
   const [cutting, setCutting] = useState(false);
   const [styleOpen, setStyleOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -396,23 +318,6 @@ export function App() {
     };
   }, [Boolean(drag)]);
 
-  const moveWithKeys = (note, direction, bigStep) => {
-    if (note.location === "tray") {
-      const index = trayNotes.findIndex((item) => item.id === note.id);
-      const nextIndex = clamp(index + (direction[0] || direction[1]), 0, trayNotes.length - 1);
-      commit({ type: "drop", id: note.id, location: "tray", beforeNoteId: beforeNoteIdAt(store, note.id, nextIndex) });
-      requestAnimationFrame(() => sceneRef.current.querySelector(`[data-note-id="${note.id}"]`)?.scrollIntoView({ block: "nearest" }));
-      announce(`Piece ${nextIndex + 1} of ${trayNotes.length}.`);
-    } else {
-      const step = bigStep ? 24 : 8;
-      const position = constrainNote({ ...note, x: note.x + direction[0] * step, y: note.y + direction[1] * step });
-      const point = { x: position.x + note.width / 2, y: position.y + note.height / 2 };
-      commit({ type: "drop", id: note.id, location: isInsideTray(point) ? "tray" : "desk",
-        beforeNoteId: isInsideTray(point) ? beforeNoteIdAt(store, note.id, 0) : null,
-        patch: { ...position, z: ++topLayer.current } });
-    }
-  };
-
   const removeNote = (id) => {
     commit({ type: "remove", id });
     scissorsRef.current?.focus();
@@ -428,23 +333,6 @@ export function App() {
     const colorSource = original.colorSource ?? (isOnPage(original) ? "page" : "tray");
     const replacements = halves.map((note) => ({ ...note, colorSource, parentFragmentId: id, id: makeNoteId(), z: ++topLayer.current }));
     commit({ type: "cut", id, children: replacements });
-  };
-
-  const addCuts = async (pieces) => {
-    if (notes.length + pieces.length > MAX_NOTES) return "A little room to play: keep the desk to 80 pieces. Focus a strip and press Delete to remove it.";
-    if (pieces.some((piece) => piece.length > 60)) return "Keep each piece under 60 characters, or try cutting into words.";
-    await document.fonts.load('18px "Special Elite"');
-    const sizes = pieces.map((text) => {
-      measureRef.current.textContent = text;
-      return measureRef.current.offsetWidth;
-    });
-    const cuts = placeCuts(pieces, sizes).map((note) => ({
-      ...note, id: makeNoteId(), z: ++topLayer.current,
-    }));
-    commit({ type: "add", notes: cuts });
-    trayRef.current.scrollTop = 0;
-    announce(`${cuts.length} new ${cuts.length === 1 ? "piece" : "pieces"}. Drag a little poetry onto the page.`);
-    return null;
   };
 
   const savePoem = async () => {
@@ -467,28 +355,23 @@ export function App() {
         onPointerUp={(event) => { if (event.pointerId === dragRef.current?.pointerId) { updateDrag(event.clientX, event.clientY); finishDrag(); } }}
         onPointerCancel={() => finishDrag(true)} onLostPointerCapture={() => finishDrag(true)}
         style={{ transform: `translate(-50%, -50%) scale(${scale})`, "--page-color": theme.page, "--back-color": theme.back, "--cut-hit-padding": `${CUT_HIT.padding / scale}px` }}>
-        <div className="word-tray" title="Double-click empty space to add text" onDoubleClick={() => {
-          if (!cutting) { setStyleOpen(false); setTextOpen(true); }
-        }} />
+        <div className="word-tray"/>
         <section className="tray-scroll" ref={trayRef} aria-label="Collected paper strips" tabIndex={0}
           data-sequence-revision={store.revision}
           style={{ top: TRAY.top, height: TRAY.bottom - TRAY.top, width: TRAY.width }}
-          onScroll={() => { if (dragRef.current) updateDrag(dragRef.current.clientX, dragRef.current.clientY); }}
-          onDoubleClick={(event) => {
-            if (!cutting && !event.target.closest(".paper-strip")) { setStyleOpen(false); setTextOpen(true); }
-          }}>
+          onScroll={() => { if (dragRef.current) updateDrag(dragRef.current.clientX, dragRef.current.clientY); }}>
           <div className="tray-content" style={{ height: Math.max(TRAY.bottom - TRAY.top, layout.height + 24) }}>
             {layout.items.map((note) => note.id === drag?.note.id
               ? <div key={note.id} className="tray-placeholder" aria-hidden="true" style={{ left: note.x, top: note.y, width: note.width, height: note.height }} />
               : <PaperStrip key={note.id} note={note} inTray theme={theme} sceneRef={sceneRef}
-                cutting={cutting} onCut={cutNote} onPickUp={pickUpNote} onKeyMove={moveWithKeys} onRemove={removeNote}
+                cutting={cutting} onCut={cutNote} onPickUp={pickUpNote} onRemove={removeNote}
                 landingFrom={landing?.id === note.id ? landing : null} />)}
           </div>
         </section>
         <div className="back-sheet" aria-hidden="true" />
         <section className="poem-sheet" aria-label="Poem page" />
         {notes.filter((note) => note.location !== "tray" && note.id !== drag?.note.id).map((note) => <PaperStrip key={note.id} note={note} theme={theme} sceneRef={sceneRef}
-          cutting={cutting} onCut={cutNote} onPickUp={pickUpNote} onKeyMove={moveWithKeys} onRemove={removeNote}
+          cutting={cutting} onCut={cutNote} onPickUp={pickUpNote} onRemove={removeNote}
           landingFrom={landing?.id === note.id ? landing : null} />)}
         {drag && <PaperStrip note={{ ...drag.note, ...drag.position, location: "desk", colorSource: undefined }} drag={drag} theme={theme} sceneRef={sceneRef} />}
         <button className="object-button scissors-button" ref={scissorsRef} aria-label={cutting ? "Exit cutting mode" : "Enter cutting mode"}
@@ -520,7 +403,6 @@ export function App() {
         : "Drag in the left tray to reorder, or onto the page to compose. Hold near the top or bottom of the tray to scroll while dragging. Escape cancels a drag. Arrow keys reorder tray pieces or move page pieces; Shift moves farther on the page. Delete removes a piece. Click the scissors to cut. Double-click empty tray space to add words."}</p>
       <div className={`toast${toast ? " is-visible" : ""}`} role="status">{toast}</div>
       {!import.meta.env.DEV && !extensionConnected && <div className="connection-banner" role="status">Open the Cento Extension to connect your collected words.</div>}
-      {textOpen && <TextDialog onCut={addCuts} onClose={() => { setTextOpen(false); scissorsRef.current?.focus(); }} />}
     </main>
   );
 }
