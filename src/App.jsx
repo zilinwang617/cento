@@ -129,6 +129,7 @@ export function App() {
   const topLayer = useRef(INITIAL_NOTES.length + 9);
   const toastTimer = useRef(0);
   const dragRef = useRef(null);
+  const dragListenersRef = useRef(null);
   const viewRef = useRef(null);
   const pendingCommandsRef = useRef(new Map());
   const authoritativeRevisionRef = useRef(-1);
@@ -165,7 +166,7 @@ export function App() {
     return () => observer.disconnect();
   }, []);
 
-  useEffect(() => () => clearTimeout(toastTimer.current), []);
+  useEffect(() => () => { clearTimeout(toastTimer.current); detachDrag(); }, []);
 
   useEffect(() => {
     const receive = (event) => {
@@ -284,18 +285,57 @@ export function App() {
     const next = { note: { ...note, ...position }, pointerId: event.pointerId, point, position,
       clientX: event.clientX, clientY: event.clientY, offset: { x: point.x - position.x, y: point.y - position.y },
       inTray: note.location === "tray", index, grip: `${grip.x}px ${grip.y}px`, tilt: 0, lastMove: performance.now() };
-    // Capture on the stable workspace; the paper can move out of the scroll container.
-    sceneRef.current.setPointerCapture(event.pointerId);
     sceneRef.current.focus({ preventScroll: true });
     setLanding(null);
     dragRef.current = next;
     setDrag(next);
+    trackDrag(event.pointerId);
+    // Capture on the stable workspace; the paper can move out of the scroll container. It is a
+    // convenience, not the contract: a flick can lose it before it is even granted, so the drag
+    // is driven by the window listeners above and never depends on capture surviving.
+    try { sceneRef.current.setPointerCapture(event.pointerId); } catch { /* the pointer is already gone */ }
+  };
+
+  // The pointer is followed on the window, not on the strip or the workspace, so re-rendering the
+  // paper out from under the cursor, losing pointer capture, or leaving the scene cannot strand a
+  // drag half way. Nothing here abandons the gesture: an interruption puts the paper down where it
+  // is, and only Escape flies it back.
+  const trackDrag = (pointerId) => {
+    detachDrag();
+    const mine = (event) => event.pointerId === pointerId && dragRef.current?.pointerId === pointerId;
+    const move = (event) => {
+      if (!mine(event)) return;
+      // The button came up somewhere we never saw the pointerup. Put the paper down here.
+      if (event.buttons === 0) finishDrag();
+      else updateDrag(event.clientX, event.clientY);
+    };
+    const up = (event) => {
+      if (!mine(event)) return;
+      updateDrag(event.clientX, event.clientY);
+      finishDrag();
+    };
+    const interrupt = (event) => { if (mine(event)) finishDrag(); };
+    // Capture phase: nothing in between can swallow the gesture with stopPropagation.
+    window.addEventListener("pointermove", move, true);
+    window.addEventListener("pointerup", up, true);
+    window.addEventListener("pointercancel", interrupt, true);
+    dragListenersRef.current = () => {
+      window.removeEventListener("pointermove", move, true);
+      window.removeEventListener("pointerup", up, true);
+      window.removeEventListener("pointercancel", interrupt, true);
+    };
+  };
+
+  const detachDrag = () => {
+    dragListenersRef.current?.();
+    dragListenersRef.current = null;
   };
 
   const finishDrag = (cancel = false) => {
     const current = dragRef.current;
     if (!current) return;
     dragRef.current = null;
+    detachDrag();
     if (!cancel) {
       commit({ type: "drop", id: current.note.id, location: current.inTray ? "tray" : "desk",
         beforeNoteId: current.inTray ? beforeNoteIdAt(viewRef.current.store, current.note.id, current.index) : null,
@@ -329,16 +369,18 @@ export function App() {
       previousTime = time;
       frame = requestAnimationFrame(tick);
     };
-    const cancel = () => finishDrag(true);
-    const escape = (event) => { if (event.key === "Escape") { event.preventDefault(); cancel(); } };
-    window.addEventListener("blur", cancel);
-    window.addEventListener("resize", cancel);
+    // Losing the window or resizing the scene ends the gesture but is not a change of mind, so the
+    // paper is released where it stands. Escape is the one deliberate cancel that returns it.
+    const release = () => finishDrag();
+    const escape = (event) => { if (event.key === "Escape") { event.preventDefault(); finishDrag(true); } };
+    window.addEventListener("blur", release);
+    window.addEventListener("resize", release);
     window.addEventListener("keydown", escape);
     frame = requestAnimationFrame(tick);
     return () => {
       cancelAnimationFrame(frame);
-      window.removeEventListener("blur", cancel);
-      window.removeEventListener("resize", cancel);
+      window.removeEventListener("blur", release);
+      window.removeEventListener("resize", release);
       window.removeEventListener("keydown", escape);
     };
   }, [Boolean(drag)]);
@@ -376,9 +418,6 @@ export function App() {
   return (
     <main className={`workspace-viewport${cutting ? " is-cutting" : ""}`} ref={viewportRef} aria-label="Cut-ups poetry workspace">
       <div className={`workspace${drag ? " is-dragging" : ""}`} ref={sceneRef} tabIndex={-1}
-        onPointerMove={(event) => { if (event.pointerId === dragRef.current?.pointerId) updateDrag(event.clientX, event.clientY); }}
-        onPointerUp={(event) => { if (event.pointerId === dragRef.current?.pointerId) { updateDrag(event.clientX, event.clientY); finishDrag(); } }}
-        onPointerCancel={() => finishDrag(true)} onLostPointerCapture={() => finishDrag(true)}
         style={{ transform: `translate(-50%, -50%) scale(${scale})`, "--page-color": theme.page, "--back-color": theme.back, "--cut-hit-padding": `${CUT_HIT.padding / scale}px` }}>
         <div className="word-tray"/>
         <section className="tray-scroll" ref={trayRef} aria-label="Collected paper strips" tabIndex={0}
