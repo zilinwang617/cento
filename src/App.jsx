@@ -3,7 +3,7 @@ import { WORLD, THEMES, INITIAL_NOTES, clamp, constrainNote, placeCuts, noteColo
 import { CUT_HIT, wordRuns, paperLocalPoint, nearestCut, splitPaper } from "./cutting.js";
 import { exportPoem } from "./export.js";
 import { TRAY, packTray, insertAt, trayInsertionIndex, isInsideTray, trayScrollSpeed } from "./tray.js";
-import { MAX_NOTES, beforeNoteIdAt, createNoteStore, makeNoteId, noteReducer, orderedNotes } from "./note-store.js";
+import { MAX_NOTES, applyPendingActions, beforeNoteIdAt, createNoteStore, makeNoteId, noteReducer, orderedNotes } from "./note-store.js";
 import { MESSAGE, PROTOCOL_SOURCE, isBridgeMessage } from "./protocol.js";
 
 function PaperStrip({ note, theme, sceneRef, cutting, onCut, onPickUp, onKeyMove, onRemove, inTray = false, drag, landingFrom }) {
@@ -130,6 +130,9 @@ export function App() {
   const toastTimer = useRef(0);
   const dragRef = useRef(null);
   const viewRef = useRef(null);
+  const pendingCommandsRef = useRef(new Map());
+  const authoritativeRevisionRef = useRef(-1);
+  const authoritativeDocumentRef = useRef(null);
   const [scale, setScale] = useState(1);
   const [store, dispatch] = useReducer(noteReducer, import.meta.env.DEV ? INITIAL_NOTES : [], createNoteStore);
   const extensionRef = useRef(false);
@@ -168,12 +171,31 @@ export function App() {
     const receive = (event) => {
       if (event.source !== window || event.origin !== window.location.origin || !isBridgeMessage(event.data, PROTOCOL_SOURCE.extension)) return;
       if (event.data.type === MESSAGE.snapshot) {
-        dispatch({ type: "hydrate", document: event.data.document });
+        if (event.data.document.revision < authoritativeRevisionRef.current) return;
+        authoritativeRevisionRef.current = event.data.document.revision;
+        authoritativeDocumentRef.current = event.data.document;
+        const pendingDrops = [...pendingCommandsRef.current.values()]
+          .filter((entry) => entry.optimistic)
+          .map((entry) => entry.action);
+        const visibleDocument = applyPendingActions(event.data.document, pendingDrops) ?? event.data.document;
+        dispatch({ type: "hydrate", document: visibleDocument });
         extensionRef.current = true;
         setExtensionConnected(true);
         topLayer.current = Math.max(INITIAL_NOTES.length + 9, ...event.data.document.notes.map((note) => note.z || 0)) + 1;
       }
+      if (event.data.type === MESSAGE.ack && typeof event.data.commandId === "string") {
+        pendingCommandsRef.current.delete(event.data.commandId);
+      }
       if (event.data.type === MESSAGE.error) {
+        if (typeof event.data.commandId === "string") pendingCommandsRef.current.delete(event.data.commandId);
+        if (event.data.code === "bridge-disconnected") setExtensionConnected(false);
+        if (authoritativeDocumentRef.current) {
+          const remainingDrops = [...pendingCommandsRef.current.values()]
+            .filter((entry) => entry.optimistic)
+            .map((entry) => entry.action);
+          const restored = applyPendingActions(authoritativeDocumentRef.current, remainingDrops);
+          if (restored) dispatch({ type: "hydrate", document: restored });
+        }
         setToast(event.data.message || "The Extension could not save that change.");
         clearTimeout(toastTimer.current);
         toastTimer.current = setTimeout(() => setToast(""), 3400);
@@ -221,10 +243,13 @@ export function App() {
   };
   const commit = (action) => {
     if (!extensionRef.current) { dispatch(action); return; }
+    const commandId = makeNoteId();
+    const optimistic = action.type === "drop";
     // Pointer drops update immediately so the drag overlay is replaced at the same coordinates.
     // The next Worker snapshot remains authoritative and will reconcile any concurrent change.
-    if (action.type === "drop") dispatch(action);
-    window.postMessage({ source: PROTOCOL_SOURCE.main, type: MESSAGE.command, commandId: makeNoteId(), action }, window.location.origin);
+    if (optimistic) dispatch(action);
+    pendingCommandsRef.current.set(commandId, { action, optimistic });
+    window.postMessage({ source: PROTOCOL_SOURCE.main, type: MESSAGE.command, commandId, action }, window.location.origin);
   };
   const worldPoint = (clientX, clientY) => {
     const rect = sceneRef.current.getBoundingClientRect();

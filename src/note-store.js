@@ -46,6 +46,13 @@ export function beforeNoteIdAt(state, movingId, visibleIndex, location = "tray")
   return orderedNotes(state, location).filter((note) => note.id !== movingId)[visibleIndex]?.id ?? null;
 }
 
+export function applyPendingActions(document, actions = []) {
+  let state = normalizeDocument(document);
+  if (!state) return null;
+  for (const action of actions) state = noteReducer(state, action);
+  return state;
+}
+
 function normalizeNote(note, fallbackOrder) {
   const textWidth = Number.isFinite(note.textWidth)
     ? note.textWidth
