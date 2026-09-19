@@ -269,6 +269,57 @@ button:disabled {
   transition: transform 90ms linear, box-shadow 160ms ease, background-color 200ms ease, color 200ms ease;
 }
 
+.paper-strip.is-over-trash .paper-face {
+  transform: perspective(850px) rotate(calc(var(--tilt) - 4deg)) scale(.82);
+  opacity: .5;
+  filter: saturate(.55) brightness(.9);
+  box-shadow: 1px 3px 4px rgb(0 0 0 / 14%);
+  transition: transform 130ms cubic-bezier(.2, .75, .25, 1), opacity 130ms ease, filter 130ms ease;
+}
+
+.trash-can {
+  position: absolute;
+  z-index: 200;
+  pointer-events: none;
+  transform-origin: 50% 86%;
+  transition: transform 180ms cubic-bezier(.2, .75, .25, 1);
+}
+
+.trash-can img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.trash-can.is-armed {
+  transform: scale(1.055) rotate(-1.6deg);
+}
+
+.trash-note {
+  position: absolute;
+  left: 50%;
+  bottom: -36px;
+  width: max-content;
+  max-width: 220px;
+  transform: translateX(-50%);
+  padding: 8px 12px;
+  background: #f5f1df;
+  color: #38352e;
+  font-size: 13px;
+  line-height: 1.3;
+  text-align: center;
+  box-shadow: 0 3px 12px #0003;
+  opacity: 0;
+}
+
+.trash-can.is-armed .trash-note {
+  opacity: 1;
+  transition: opacity 150ms ease;
+}
+
 .object-button {
   position: absolute;
   z-index: 200;

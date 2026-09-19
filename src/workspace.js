@@ -40,6 +40,17 @@ export function constrainNote(note) {
   };
 }
 
+// Figma Desktop - 5 (`19:7`): the bin sits in the right-hand margin, clear of the page.
+export const TRASH = { x: 1245, y: 404, width: 185, height: 301 };
+// Forgiving on the three sides that face empty desk, tight on the left so a strip resting
+// against the page's right edge is never mistaken for a throw-away.
+const TRASH_REACH = { left: 4, top: 22, right: 22, bottom: 22 };
+
+export function isOverTrash(point) {
+  return point.x >= TRASH.x - TRASH_REACH.left && point.x <= TRASH.x + TRASH.width + TRASH_REACH.right
+    && point.y >= TRASH.y - TRASH_REACH.top && point.y <= TRASH.y + TRASH.height + TRASH_REACH.bottom;
+}
+
 export function isOnPage(note) {
   const x = note.x + note.width / 2;
   const y = note.y + note.height / 2;

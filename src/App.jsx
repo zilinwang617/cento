@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
-import { WORLD, THEMES, INITIAL_NOTES, clamp, constrainNote, placeCuts, noteColors, isOnPage } from "./workspace.js";
+import { WORLD, THEMES, INITIAL_NOTES, TRASH, clamp, constrainNote, placeCuts, noteColors, isOnPage, isOverTrash } from "./workspace.js";
 import { CUT_HIT, wordRuns, paperLocalPoint, nearestCut, splitPaper } from "./cutting.js";
 import { exportPoem } from "./export.js";
 import { TRAY, packTray, insertAt, trayInsertionIndex, isInsideTray, trayScrollSpeed } from "./tray.js";
@@ -82,6 +82,12 @@ function PaperStrip({ note, theme, sceneRef, cutting, onCut, onPickUp, onKeyMove
     if (cutTargetRef.current !== target) showCutTarget(target);
   };
 
+  const discardOnDelete = (event) => {
+    if (cutting || drag || (event.key !== "Delete" && event.key !== "Backspace")) return;
+    event.preventDefault();
+    onRemove?.(note.id);
+  };
+
   const pickUp = (event) => {
     if (!event.isPrimary || event.button !== 0 || drag) return;
     event.preventDefault();
@@ -91,7 +97,7 @@ function PaperStrip({ note, theme, sceneRef, cutting, onCut, onPickUp, onKeyMove
   };
 
   return (
-    <div ref={elementRef} className={`paper-strip${inTray ? " is-in-tray" : ""}${drag ? " is-lifted drag-overlay" : ""}${cutting && words.length > 1 ? " is-cuttable" : ""}`}
+    <div ref={elementRef} className={`paper-strip${inTray ? " is-in-tray" : ""}${drag ? " is-lifted drag-overlay" : ""}${drag?.overTrash ? " is-over-trash" : ""}${cutting && words.length > 1 ? " is-cuttable" : ""}`}
       role="button" tabIndex={drag ? -1 : 0} aria-hidden={drag ? true : undefined} aria-label={`${cutting ? "Cut" : "Move"} paper: ${note.text}`} aria-describedby="paper-instructions"
       data-note-id={note.id} data-location={inTray ? "tray" : "desk"}
       style={{
@@ -100,7 +106,7 @@ function PaperStrip({ note, theme, sceneRef, cutting, onCut, onPickUp, onKeyMove
         "--strip-color": colors.paper, "--ink-color": colors.ink,
         "--grip": drag?.grip ?? "50% 50%", "--tilt": `${drag?.tilt ?? 0}deg`, "--type-size": `${note.fontSize || 18}px`,
       }}
-      onPointerDown={pickUp} onPointerMove={cutting ? previewCut : undefined}
+      onPointerDown={pickUp} onKeyDown={discardOnDelete} onPointerMove={cutting ? previewCut : undefined}
       onPointerEnter={cutting ? previewCut : undefined} onPointerLeave={() => showCutTarget(null)} onBlur={() => showCutTarget(null)}
       onClick={(event) => { if (cutting) { const gap = cutAtPointer(event); if (gap) onCut(note.id, gap); } }}
       onDoubleClick={(event) => event.stopPropagation()}>
@@ -245,8 +251,9 @@ export function App() {
   const commit = (action) => {
     if (!extensionRef.current) { dispatch(action); return; }
     const commandId = makeNoteId();
-    const optimistic = action.type === "drop";
+    const optimistic = action.type === "drop" || action.type === "remove";
     // Pointer drops update immediately so the drag overlay is replaced at the same coordinates.
+    // A throw-away does the same: the strip is gone, and there is no undo to wait for.
     // The next Worker snapshot remains authoritative and will reconcile any concurrent change.
     if (optimistic) dispatch(action);
     pendingCommandsRef.current.set(commandId, { action, optimistic });
@@ -263,6 +270,7 @@ export function App() {
     if (!current) return;
     const point = worldPoint(clientX, clientY);
     const inTray = isInsideTray(point);
+    const overTrash = !inTray && isOverTrash(point);
     const view = viewRef.current;
     const others = view.trayNotes.filter((note) => note.id !== current.note.id);
     const preview = packTray(current.inTray ? insertAt(others, current.note, current.index) : others);
@@ -270,7 +278,7 @@ export function App() {
     const position = constrainNote({ ...current.note, x: point.x - current.offset.x, y: point.y - current.offset.y });
     const now = performance.now();
     const tilt = clamp((point.x - current.point.x) / Math.max(8, now - current.lastMove) * 1.4, -2, 2);
-    const next = { ...current, point, clientX, clientY, inTray, index, position, tilt, lastMove: now };
+    const next = { ...current, point, clientX, clientY, inTray, overTrash, index, position, tilt, lastMove: now };
     dragRef.current = next;
     setDrag(next);
   };
@@ -336,17 +344,22 @@ export function App() {
     if (!current) return;
     dragRef.current = null;
     detachDrag();
-    if (!cancel) {
+    // Escape still cancels over the bin: only a deliberate release throws the piece away.
+    const discarding = !cancel && current.overTrash;
+    if (discarding) discardNote(current.note.id);
+    else if (!cancel) {
       commit({ type: "drop", id: current.note.id, location: current.inTray ? "tray" : "desk",
         beforeNoteId: current.inTray ? beforeNoteIdAt(viewRef.current.store, current.note.id, current.index) : null,
         patch: { ...current.position, angle: current.inTray ? 0 : current.note.angle, z: ++topLayer.current } });
     }
     // Canvas drops already end at their final coordinates. Only tray packing (or cancellation)
-    // needs a positional landing animation from the pointer to a different resting slot.
-    setLanding(cancel || current.inTray ? { id: current.note.id, ...current.position, angle: current.note.angle } : null);
+    // needs a positional landing animation from the pointer to a different resting slot. A
+    // discarded strip lands nowhere and leaves no element behind to focus.
+    setLanding(!discarding && (cancel || current.inTray) ? { id: current.note.id, ...current.position, angle: current.note.angle } : null);
     setDrag(null);
     if (sceneRef.current.hasPointerCapture(current.pointerId)) sceneRef.current.releasePointerCapture(current.pointerId);
-    requestAnimationFrame(() => sceneRef.current?.querySelector(`[data-note-id="${current.note.id}"]`)?.focus({ preventScroll: true }));
+    if (discarding) sceneRef.current?.focus({ preventScroll: true });
+    else requestAnimationFrame(() => sceneRef.current?.querySelector(`[data-note-id="${current.note.id}"]`)?.focus({ preventScroll: true }));
   };
 
   useEffect(() => {
@@ -385,10 +398,13 @@ export function App() {
     };
   }, [Boolean(drag)]);
 
+  // Throwing a piece away is final: there is no undo, and nothing is kept to restore.
+  // The bin and the strip leaving the desk are the whole confirmation; no toast follows.
+  const discardNote = (id) => commit({ type: "remove", id });
+
   const removeNote = (id) => {
-    commit({ type: "remove", id });
+    discardNote(id);
     scissorsRef.current?.focus();
-    announce("Piece removed.");
   };
 
   const cutNote = (id, gap) => {
@@ -460,11 +476,15 @@ export function App() {
           <span className="export-art"><img src="/assets/export-container.png" alt="" draggable="false" /></span>
           <span className="object-hint">Just the page. Ready to keep.</span>
         </button>
+        <div className={`trash-can${drag?.overTrash ? " is-armed" : ""}`} style={{ left: TRASH.x, top: TRASH.y, width: TRASH.width, height: TRASH.height }} aria-hidden="true">
+          <img src="/assets/trash-can.png" alt="" draggable="false" />
+          <span className="trash-note">Let go to throw it away</span>
+        </div>
         <span ref={measureRef} className="text-measure" aria-hidden="true" />
       </div>
       <p id="paper-instructions" className="visually-hidden">{cutting
         ? "Point between two words and click to cut. Or focus a strip, use left and right arrows to select a gap, then Enter to cut. Press Escape or click the scissors to return to dragging."
-        : "Drag in the left tray to reorder, or onto the page to compose. Hold near the top or bottom of the tray to scroll while dragging. Escape cancels a drag. Arrow keys reorder tray pieces or move page pieces; Shift moves farther on the page. Delete removes a piece. Click the scissors to cut. Double-click empty tray space to add words."}</p>
+        : "Drag in the left tray to reorder, or onto the page to compose. Hold near the top or bottom of the tray to scroll while dragging. Escape cancels a drag. Arrow keys reorder tray pieces or move page pieces; Shift moves farther on the page. Drop a piece on the bin at the right, or press Delete, to throw it away for good — this cannot be undone. Click the scissors to cut. Double-click empty tray space to add words."}</p>
       <div className={`toast${toast ? " is-visible" : ""}`} role="status">{toast}</div>
       {!import.meta.env.DEV && !extensionConnected && <div className="connection-banner" role="status">Open the Cento Extension to connect your collected words.</div>}
     </main>
