@@ -13,6 +13,13 @@ test("Manifest V3 exposes a Chrome 116 side panel with the intended local permis
   assert.ok(manifest.permissions.includes("storage"));
   assert.ok(manifest.permissions.includes("contextMenus"));
   assert.deepEqual(manifest.host_permissions, ["<all_urls>"]);
+  assert.deepEqual(manifest.icons, {
+    16: "icons/icon-16.png",
+    32: "icons/icon-32.png",
+    48: "icons/icon-48.png",
+    128: "icons/icon-128.png",
+  });
+  assert.deepEqual(manifest.action.default_icon, manifest.icons);
   assert.equal(Object.hasOwn(manifest, "commands"), false);
 });
 
