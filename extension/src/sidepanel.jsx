@@ -9,7 +9,15 @@ import "./sidepanel.css";
 const UNKNOWN_META = { source: { url: "", title: "", capturedAt: "" }, typography: { sourceFontStack: "", category: "unknown", confidence: 0 } };
 const layoutSettings = (width) => ({ width, top: 0, bottom: 0, padding: 20, gapX: 14, gapY: 18, startY: 18, edge: 58, speed: 520 });
 
-function Paper({ note, dragging, onPointerDown, onRemove, onNudge }) {
+let measureCanvas;
+function measureSpecialElite(text) {
+  measureCanvas ??= document.createElement("canvas");
+  const context = measureCanvas.getContext("2d");
+  context.font = '18px "Special Elite", Georgia, serif';
+  return context.measureText(text).width;
+}
+
+function Paper({ note, measuredTextWidth, dragging, onPointerDown, onRemove, onNudge }) {
   const source = note.source?.title || note.source?.url || "Collected text";
   const font = note.typography?.category && note.typography.category !== "unknown" ? ` · ${note.typography.category}` : "";
   return <button type="button" className={`side-paper${dragging ? " is-dragging" : ""}`}
@@ -19,7 +27,7 @@ function Paper({ note, dragging, onPointerDown, onRemove, onNudge }) {
       if (["ArrowLeft", "ArrowUp"].includes(event.key)) { event.preventDefault(); onNudge(note.id, -1); }
       if (["ArrowRight", "ArrowDown"].includes(event.key)) { event.preventDefault(); onNudge(note.id, 1); }
     }}
-    style={{ left: note.x, top: note.y, width: note.width, height: note.height, "--type-size": `${displayFontSize(note)}px` }}>
+    style={{ left: note.x, top: note.y, width: note.width, height: note.height, "--type-size": `${displayFontSize(note, measuredTextWidth)}px` }}>
     <span>{note.text}</span>
   </button>;
 }
@@ -37,9 +45,11 @@ function SidePanel() {
   const [drag, setDrag] = useState(null);
   const [externalDrag, setExternalDrag] = useState(false);
   const [connected, setConnected] = useState(false);
+  const [fontReady, setFontReady] = useState(false);
   const [toast, setToast] = useState("");
   const settings = useMemo(() => layoutSettings(width), [width]);
   const trayNotes = useMemo(() => orderedNotes(documentState, "tray"), [documentState]);
+  const measuredTextWidths = useMemo(() => new Map(trayNotes.map((note) => [note.id, measureSpecialElite(note.text)])), [trayNotes, fontReady]);
   const layout = useMemo(() => {
     const notes = drag ? insertAt(trayNotes.filter((note) => note.id !== drag.note.id), drag.note, drag.index) : trayNotes;
     return packTray(notes, settings);
@@ -62,18 +72,11 @@ function SidePanel() {
 
   const submit = (action) => { command(action).catch((error) => announce(error?.message || "That change could not be saved.")); };
 
-  const measure = (text) => {
-    const canvas = measure.canvas ?? (measure.canvas = document.createElement("canvas"));
-    const context = canvas.getContext("2d");
-    context.font = '18px "Special Elite", Georgia, serif';
-    return context.measureText(text).width;
-  };
-
   const collect = async (candidate, pendingId = null) => {
     let readyToSend = false;
     try {
       await document.fonts.load('18px "Special Elite"');
-      const notes = createNotesFromCapture(candidate, measure);
+      const notes = createNotesFromCapture(candidate, measureSpecialElite);
       if (documentRef.current.notes.length + notes.length > MAX_NOTES) throw new CaptureError("desk-full", "The desk can hold up to 80 pieces.");
       readyToSend = true;
       await command({ type: "add", notes });
@@ -136,6 +139,12 @@ function SidePanel() {
     const observer = new ResizeObserver(resize);
     observer.observe(element);
     return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    document.fonts.load('18px "Special Elite"').then(() => { if (active) setFontReady(true); });
+    return () => { active = false; };
   }, []);
 
   const updateDrag = (clientX, clientY) => {
@@ -235,9 +244,9 @@ function SidePanel() {
         {!trayNotes.length && !drag && <div className="empty-state"><span>A few words can become a place.</span><small>Drag a selection here, or right-click it and choose “Save to Cento”.</small></div>}
         {layout.items.map((note) => note.id === drag?.note.id
           ? <div className="side-placeholder" key={note.id} style={{ left: note.x, top: note.y, width: note.width, height: note.height }} />
-          : <Paper key={note.id} note={note} onPointerDown={(event) => startDrag(note, event)}
+          : <Paper key={note.id} note={note} measuredTextWidth={measuredTextWidths.get(note.id)} onPointerDown={(event) => startDrag(note, event)}
             onRemove={(id) => submit({ type: "remove", id })} onNudge={nudge} />)}
-        {drag && <Paper note={{ ...drag.note, ...drag.position }} dragging onPointerDown={() => {}} onRemove={() => {}} onNudge={() => {}} />}
+        {drag && <Paper note={{ ...drag.note, ...drag.position }} measuredTextWidth={measureSpecialElite(drag.note.text)} dragging onPointerDown={() => {}} onRemove={() => {}} onNudge={() => {}} />}
       </div>
     </section>
     <div className="drop-overlay" aria-hidden={!externalDrag}><span>Drop to collect</span></div>

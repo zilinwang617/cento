@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { TRAY, packTray, insertAt, trayInsertionIndex, trayScrollSpeed } from "../src/tray.js";
+import { TRAY, displayFontSize, packTray, insertAt, trayInsertionIndex, trayScrollSpeed } from "../src/tray.js";
 import { beforeNoteIdAt, createNoteStore, normalizeDocument, noteReducer, orderedNotes } from "../src/note-store.js";
 import { splitPaper } from "../src/cutting.js";
 
@@ -43,6 +43,12 @@ test("scrolling activates only at the tray's top/bottom edges", () => {
   assert.ok(trayScrollSpeed({ x: 200, y: TRAY.bottom - 5 }) > 0);
   assert.equal(trayScrollSpeed({ x: 600, y: TRAY.bottom - 5 }), 0);
   assert.equal(trayScrollSpeed({ x: 200, y: 400 }), 0);
+});
+
+test("rendered font sizing can recover from stale inherited text width", () => {
+  const stale = { width: 180, textWidth: 900, fontSize: 18 };
+  assert.ok(displayFontSize(stale) < 4);
+  assert.equal(displayFontSize(stale, 110), 18);
 });
 
 test("new batches prepend in reading order while identity and added order survive reordering", () => {

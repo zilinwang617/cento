@@ -49,7 +49,13 @@ function PaperStrip({ note, theme, sceneRef, cutting, onCut, onPickUp, onKeyMove
       cutGapsRef.current = words.slice(0, -1).map((word, index) => {
         const left = textLeft + elements[index].offsetLeft + elements[index].offsetWidth;
         const right = textLeft + elements[index + 1].offsetLeft;
-        return { left, right, x: (left + right) / 2, textLeft, leftEnd: word.end, rightStart: words[index + 1].start };
+        const naturalScale = 18 / Math.max(1, note.fontSize || 18);
+        return {
+          left, right, x: (left + right) / 2, textLeft,
+          leftEnd: word.end, rightStart: words[index + 1].start,
+          leftTextWidth: (left - textLeft) * naturalScale,
+          rightTextWidth: (textLeft + textRef.current.offsetWidth - right) * naturalScale,
+        };
       });
       if (cutTargetRef.current) showCutTarget(cutGapsRef.current.find((gap) => gap.leftEnd === cutTargetRef.current.leftEnd) ?? null);
     };
@@ -249,6 +255,8 @@ export function App() {
         setToast(event.data.message || "The Extension could not save that change.");
         clearTimeout(toastTimer.current);
         toastTimer.current = setTimeout(() => setToast(""), 3400);
+        // A rejected optimistic move is repaired from the Worker's authoritative document.
+        window.postMessage({ source: PROTOCOL_SOURCE.main, type: MESSAGE.hello }, window.location.origin);
       }
     };
     window.addEventListener("message", receive);
@@ -291,6 +299,9 @@ export function App() {
   };
   const commit = (action) => {
     if (!extensionRef.current) { dispatch(action); return; }
+    // Pointer drops update immediately so the drag overlay is replaced at the same coordinates.
+    // The next Worker snapshot remains authoritative and will reconcile any concurrent change.
+    if (action.type === "drop") dispatch(action);
     window.postMessage({ source: PROTOCOL_SOURCE.main, type: MESSAGE.command, commandId: makeNoteId(), action }, window.location.origin);
   };
   const worldPoint = (clientX, clientY) => {
@@ -343,7 +354,9 @@ export function App() {
         beforeNoteId: current.inTray ? beforeNoteIdAt(viewRef.current.store, current.note.id, current.index) : null,
         patch: { ...current.position, angle: current.inTray ? 0 : current.note.angle, z: ++topLayer.current } });
     }
-    setLanding({ id: current.note.id, ...current.position, angle: current.note.angle });
+    // Canvas drops already end at their final coordinates. Only tray packing (or cancellation)
+    // needs a positional landing animation from the pointer to a different resting slot.
+    setLanding(cancel || current.inTray ? { id: current.note.id, ...current.position, angle: current.note.angle } : null);
     setDrag(null);
     if (sceneRef.current.hasPointerCapture(current.pointerId)) sceneRef.current.releasePointerCapture(current.pointerId);
     requestAnimationFrame(() => sceneRef.current?.querySelector(`[data-note-id="${current.note.id}"]`)?.focus({ preventScroll: true }));

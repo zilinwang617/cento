@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { wordRuns, paperLocalPoint, nearestCut, splitPaper } from "../src/cutting.js";
 
 const close = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-7, `${actual} ≠ ${expected}`);
-const note = { id: "test", text: "the moon remembers", x: 120, y: 230, width: 260, height: 43, angle: -5, fontSize: 18 };
-const gap = { left: 100, right: 110, x: 105, textLeft: 40, leftEnd: 8, rightStart: 9 };
+const note = { id: "test", text: "the moon remembers", x: 120, y: 230, width: 260, textWidth: 172, height: 43, angle: -5, fontSize: 18 };
+const gap = { left: 100, right: 110, x: 105, textLeft: 40, leftEnd: 8, rightStart: 9, leftTextWidth: 60, rightTextWidth: 92 };
 
 test("word boundaries retain punctuation and exclude blank/single-word cut points", () => {
   assert.deepEqual(wordRuns(" moon,   remembers. "), [
@@ -49,6 +49,8 @@ test("cutting preserves physical widths, exact text offsets, font and rotation",
   assert.equal(right.textOffset, 5);
   assert.equal(left.angle, note.angle);
   assert.equal(right.fontSize, note.fontSize);
+  assert.equal(left.textWidth, 60);
+  assert.equal(right.textWidth, 92);
   // Centers remain on the parent's baseline, separated along its rotated axis.
   const leftCenter = paperLocalPoint(note, { x: left.x + left.width / 2, y: left.y + left.height / 2 });
   const rightCenter = paperLocalPoint(note, { x: right.x + right.width / 2, y: right.y + right.height / 2 });

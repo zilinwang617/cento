@@ -31,9 +31,9 @@ export function packTray(notes, options = {}) {
   return { items, rows, height: notes.length ? y + rowHeight : 0, config };
 }
 
-export function displayFontSize(note) {
+export function displayFontSize(note, measuredTextWidth = note.textWidth) {
   const available = Math.max(1, note.width - 34);
-  return Math.min(note.fontSize || 18, 18 * available / Math.max(1, note.textWidth || available));
+  return Math.min(note.fontSize || 18, 18 * available / Math.max(1, measuredTextWidth || available));
 }
 
 export function insertAt(items, item, index) {
