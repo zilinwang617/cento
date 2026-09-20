@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
-import { WORLD, ARTBOARD, THEMES, INITIAL_NOTES, TRASH, clamp, constrainNote, placeCuts, noteColors, isOnPage, isOverTrash, nextTilt } from "./workspace.js";
+import { WORLD, ARTBOARD, THEMES, TRASH, clamp, constrainNote, placeCuts, noteColors, isOnPage, isOverTrash, nextTilt } from "./workspace.js";
 import { CUT_HIT, wordRuns, paperLocalPoint, nearestCut, splitPaper } from "./cutting.js";
 import { exportPoem } from "./export.js";
 import { TRAY, displayFontSize, packTray, insertAt, trayInsertionIndex, isInsideTray, trayScrollSpeed } from "./tray.js";
@@ -152,7 +152,7 @@ export function App() {
   const scissorsRef = useRef(null);
   const styleRef = useRef(null);
   const stylePanelRef = useRef(null);
-  const topLayer = useRef(INITIAL_NOTES.length + 9);
+  const topLayer = useRef(0);
   const toastTimer = useRef(0);
   const dragRef = useRef(null);
   const dragListenersRef = useRef(null);
@@ -161,7 +161,7 @@ export function App() {
   const authoritativeRevisionRef = useRef(-1);
   const authoritativeDocumentRef = useRef(null);
   const [scale, setScale] = useState(1);
-  const [store, dispatch] = useReducer(noteReducer, import.meta.env.DEV ? INITIAL_NOTES : [], createNoteStore);
+  const [store, dispatch] = useReducer(noteReducer, [], createNoteStore);
   const extensionRef = useRef(false);
   const [extensionConnected, setExtensionConnected] = useState(false);
   const notes = store.notes;
@@ -179,7 +179,7 @@ export function App() {
   const [unfoldingId, setUnfoldingId] = useState(null);
   const theme = THEMES.find((item) => item.id === themeId);
   const trayNotes = useMemo(() => orderedNotes(store, "tray"), [store]);
-  // Remeasuring once the faces land keeps demo widths and any CDN swap-in from overflowing a strip.
+  // Remeasuring once the faces land keeps a CDN swap-in from overflowing a strip.
   const measuredTextWidths = useMemo(() => new Map(notes.map((note) => [note.id, measureText(note.text, note.typeface)])), [notes, fontsReady]);
   const layout = useMemo(() => {
     if (!drag) return packTray(trayNotes);
@@ -227,7 +227,7 @@ export function App() {
         dispatch({ type: "hydrate", document: visibleDocument });
         extensionRef.current = true;
         setExtensionConnected(true);
-        topLayer.current = Math.max(INITIAL_NOTES.length + 9, ...event.data.document.notes.map((note) => note.z || 0)) + 1;
+        topLayer.current = Math.max(0, ...event.data.document.notes.map((note) => note.z || 0)) + 1;
       }
       if (event.data.type === MESSAGE.ack && typeof event.data.commandId === "string") {
         pendingCommandsRef.current.delete(event.data.commandId);

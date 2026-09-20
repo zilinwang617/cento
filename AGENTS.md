@@ -55,3 +55,5 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 - Fortune slips take no paper (`--paper-texture-opacity: 0`), keeping them independent of the palette the way their white paper and blue ink already are.
 - Strip textures are JPEG, the first in `public/assets/`: they are photographic, alpha-free and multiplied at low strength, so PNG would cost 1.2 MB each for nothing. Do not follow `paper-tidal/lilac/midnight` — those three are 10 MB+ and are a debt, not a convention.
 - Change Style hover rotates the whole button (paper artwork and lettering together) by -3deg over 160ms; the lettering keeps its fixed angle relative to the artwork instead of animating separately.
+
+- Start the main-site note store empty in both development and production. Do not seed example/default notes before extension hydration; only the user’s synchronized document or explicitly created notes should appear.

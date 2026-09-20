@@ -17,21 +17,6 @@ export const THEMES = [
   // Figma's black paper is translucent over the Colors & Typography frame's #464646.
   { id: "monochrome", name: "Black & White", page: "#464646", texture: "/assets/paper-monochrome.png", textureOpacity: 0.54, back: "#cecece", strip: "#cecece", ink: "#1f1f1f" },
 ];
-const EXAMPLE_TEXT = [
-  "the quiet between things", "stay", "a little longer", "blue", "as the afternoon",
-  "nothing is ever quite still", "almost", "home", "where the light lands",
-  "I kept the small things", "in my pocket", "rain", "and the sound of your name",
-  "again", "somewhere beyond the window", "softly", "we begin", "the sea remembers",
-  "what the shore forgets", "here", "a borrowed bit of sky", "slow", "down",
-  "there is room for wonder", "under the same moon", "breathe", "between two ordinary days",
-  "a small bright thing", "found", "the morning comes undone", "with you", "still",
-];
-export const INITIAL_NOTES = [
-  { id: "note-1", location: "desk", text: "text", x: 636.031, y: 255.181, width: 117.213, height: 43, angle: 5, z: 10 },
-  { id: "note-2", location: "desk", text: "longer text and such", x: 859.568, y: 251.944, width: 302.437, height: 43, angle: -2, z: 11 },
-  { id: "note-3", location: "tray", text: "a much longer text and such", x: 77.66, y: 199.143, width: 295.479, height: 43, angle: -2, z: 12 },
-  ...placeCuts(EXAMPLE_TEXT, EXAMPLE_TEXT.map((text) => text.length * 9.5)).map((note, index) => ({ ...note, id: `note-${index + 4}`, z: index + 13 })),
-];
 export const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value));
 
 // Tilt comes from a fixed library rather than a fresh roll: ten angles a side, following the
