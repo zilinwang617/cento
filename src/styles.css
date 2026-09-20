@@ -353,6 +353,19 @@ button:disabled {
   outline-offset: 8px;
 }
 
+.fortune-button {
+  left: 430px;
+  top: 23px;
+  width: 204px;
+  height: 197px;
+  transition: transform 160ms ease;
+}
+.fortune-art { position: absolute; inset: 0; overflow: hidden; transform: scaleX(-1); }
+.fortune-art img { position: absolute; width: 130.73%; height: 169.12%; max-width: none; left: -15.63%; top: -31.8%; }
+.fortune-button:hover { transform: rotate(-3deg); }
+.fortune-button:active { transform: rotate(1deg); }
+.fortune-button .object-hint { left: 45px; top: 182px; }
+
 .scissors-button {
   left: 452px;
   top: 696px;

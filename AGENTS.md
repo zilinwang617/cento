@@ -10,6 +10,10 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 
 ## Prototype-specific decisions
 
+- Fortune cookie uses Desktop - 5 (`1:103`), cookie `53:2` and note `53:4`: the cookie sits at 430,23 (204 × 197), and the note opens at fixed 634,85, 51px tall, extending right to fit its text. Use local ABeeZee at 20px, white paper, #364891 ink and the original blue end ornaments, independent of the selected palette. Preserve all other current layout and palette decisions.
+- Fortune prompts live in `src/fortune.js` as 20 stable-ID draft entries. Allow 578px total paper width (24px right page margin), 81px total end padding, hence 497px measured text width at ABeeZee 20px. Width, not character count, is the hard limit. Draw randomly without immediate repeats.
+- Only one fortune family exists at a time: drawing again atomically removes the previous note and all its cut descendants, wherever moved. Fortune pieces otherwise use normal dragging, tray packing, cutting, trash and export. Cuts keep their font and the original decorated outer ends; newly cut edges are plain.
+
 - The latest source of truth is Figma `RNdrvPrcyNqPQ32ICmm4Pa`, Desktop - 3 (`1:21`), 1440 × 1024. The earlier single-strip wood scene is superseded.
 - The page is US Letter. `ARTBOARD` derives its width from the 8.5:11 proportion against a fixed height of 888, which leaves an even 68px above and below in the 1024-tall world; Figma's 686 was 0.026% off, so the number is computed rather than copied. Both CSS sheets read it through `--page-*` custom properties instead of repeating the figures — the page size is changed in one place.
 - The PNG export is a whole 8.5 × 11 inches at `EXPORT_DPI` (300), so 2550 × 3300. Derive the scale from one edge and apply it to both, so the export can never drift out of proportion with the page. Canvas shadow offset and blur ignore the transform, so they stay multiplied by that scale.

@@ -1,6 +1,7 @@
 import { ARTBOARD, LETTER, noteColors } from "./workspace.js";
 import { displayFontSize } from "./tray.js";
 import { createTextMeasure, fontShorthand, loadNoteFonts } from "./typeface.js";
+import { FORTUNE } from "./fortune.js";
 
 // The page is Letter, so the PNG is a whole 8.5 × 11 inches at print resolution — 2550 × 3300 —
 // instead of an arbitrary multiple of the artboard. Deriving the scale from one edge and applying
@@ -10,6 +11,12 @@ export const EXPORT_DPI = 300;
 export async function renderPoem(notes, theme) {
   await loadNoteFonts();
   const measure = createTextMeasure();
+  let fortuneEnds;
+  if (notes.some((note) => note.kind === "fortune" && note.location !== "tray")) {
+    fortuneEnds = new Image();
+    fortuneEnds.src = FORTUNE.endsAsset;
+    await fortuneEnds.decode();
+  }
   const canvas = document.createElement("canvas");
   const resolution = LETTER.width * EXPORT_DPI / ARTBOARD.width;
   canvas.width = Math.round(ARTBOARD.width * resolution);
@@ -40,11 +47,16 @@ export async function renderPoem(notes, theme) {
     context.translate(note.x + note.width / 2, note.y + note.height / 2);
     context.rotate(note.angle * Math.PI / 180);
     context.shadowColor = "rgba(0, 0, 0, 0.15)";
-    context.shadowOffsetY = 2 * resolution;
-    context.shadowBlur = 2 * resolution;
+    context.shadowOffsetY = (note.kind === "fortune" ? 4 : 2) * resolution;
+    context.shadowBlur = (note.kind === "fortune" ? 4 : 2) * resolution;
     context.fillStyle = colors.paper;
     context.fillRect(-note.width / 2, -note.height / 2, note.width, note.height);
     context.shadowColor = "transparent";
+    if (note.kind === "fortune" && fortuneEnds) {
+      const edge = Math.min(FORTUNE.endWidth, note.width);
+      if (note.fortuneLeft) context.drawImage(fortuneEnds, 0, 0, edge, 52, -note.width / 2, -note.height / 2, edge, note.height);
+      if (note.fortuneRight) context.drawImage(fortuneEnds, 376.5 - edge, 0, edge, 52, note.width / 2 - edge, -note.height / 2, edge, note.height);
+    }
     context.fillStyle = "rgba(255,255,255,0.09)";
     context.fillRect(-note.width / 2, -note.height / 2, note.width, 0.5);
     context.fillStyle = colors.ink;

@@ -48,7 +48,7 @@ export function displayFontSize(note, measuredTextWidth = note.textWidth) {
     return Math.min(size, reference * note.width / Math.max(1, measuredTextWidth || note.width));
   }
   const budget = Number.isFinite(note.textWidth) ? note.textWidth : Math.max(1, intrinsic - STRIP_PADDING);
-  const padding = Math.min(STRIP_PADDING, Math.max(0, intrinsic - budget));
+  const padding = Math.min(note.kind === "fortune" ? 81 : STRIP_PADDING, Math.max(0, intrinsic - budget));
   const available = Math.max(1, note.width - padding);
   return Math.min(size, reference * available / Math.max(1, measuredTextWidth || available));
 }

@@ -6,6 +6,9 @@ import { TRAY, displayFontSize, packTray, insertAt, trayInsertionIndex, isInside
 import { createTextMeasure, fontStack, fontWeight, loadNoteFonts, referenceSize } from "./typeface.js";
 import { MAX_NOTES, applyPendingActions, beforeNoteIdAt, createNoteStore, makeNoteId, noteReducer, orderedNotes } from "./note-store.js";
 import { MESSAGE, PROTOCOL_SOURCE, isBridgeMessage } from "./protocol.js";
+import { FORTUNE, createFortuneNote, pickFortune } from "./fortune.js";
+import { FortuneEnds } from "./FortuneEnds.jsx";
+import "./fortune.css";
 
 let textMeasure;
 const measureText = (text, typefaceId) => (textMeasure ??= createTextMeasure())(text, typefaceId);
@@ -14,7 +17,7 @@ function PaperTexture({ theme }) {
   return theme.texture ? <img className="paper-texture" src={theme.texture} alt="" draggable="false" style={{ opacity: theme.textureOpacity }} /> : null;
 }
 
-function PaperStrip({ note, theme, sceneRef, cutting, onCut, onPickUp, onKeyMove, onRemove, inTray = false, drag, landingFrom, measuredTextWidth }) {
+function PaperStrip({ note, theme, sceneRef, cutting, onCut, onPickUp, onKeyMove, onRemove, inTray = false, drag, landingFrom, measuredTextWidth, unfolding = false }) {
   const elementRef = useRef(null);
   const textRef = useRef(null);
   const cutGuideRef = useRef(null);
@@ -107,7 +110,7 @@ function PaperStrip({ note, theme, sceneRef, cutting, onCut, onPickUp, onKeyMove
   };
 
   return (
-    <div ref={elementRef} className={`paper-strip${inTray ? " is-in-tray" : ""}${drag ? " is-lifted drag-overlay" : ""}${drag?.overTrash ? " is-over-trash" : ""}${cutting && words.length > 1 ? " is-cuttable" : ""}`}
+    <div ref={elementRef} className={`paper-strip${note.kind === "fortune" ? " fortune-strip" : ""}${unfolding ? " is-unfolding" : ""}${inTray ? " is-in-tray" : ""}${drag ? " is-lifted drag-overlay" : ""}${drag?.overTrash ? " is-over-trash" : ""}${cutting && words.length > 1 ? " is-cuttable" : ""}`}
       role="button" tabIndex={drag ? -1 : 0} aria-hidden={drag ? true : undefined} aria-label={`${cutting ? "Cut" : "Move"} paper: ${note.text}`} aria-describedby="paper-instructions"
       data-note-id={note.id} data-location={inTray ? "tray" : "desk"}
       style={{
@@ -122,6 +125,7 @@ function PaperStrip({ note, theme, sceneRef, cutting, onCut, onPickUp, onKeyMove
       onClick={(event) => { if (cutting) { const gap = cutAtPointer(event); if (gap) onCut(note.id, gap); } }}
       onDoubleClick={(event) => event.stopPropagation()}>
       <div className="paper-face">
+        <FortuneEnds note={note} />
         <span className="paper-text" ref={textRef} style={note.textOffset == null ? undefined : { left: note.textOffset, transform: "translateY(-50%)" }}>
           {words.map((word, index) => <Fragment key={word.start}>
             {index === 0 ? note.text.slice(0, word.start) : null}
@@ -164,6 +168,10 @@ export function App() {
   const [exporting, setExporting] = useState(false);
   const [toast, setToast] = useState("");
   const [fontsReady, setFontsReady] = useState(false);
+  const [drawingFortune, setDrawingFortune] = useState(false);
+  const drawingFortuneRef = useRef(false);
+  const previousFortuneRef = useRef(null);
+  const [unfoldingId, setUnfoldingId] = useState(null);
   const theme = THEMES.find((item) => item.id === themeId);
   const trayNotes = useMemo(() => orderedNotes(store, "tray"), [store]);
   // Remeasuring once the faces land keeps demo widths and any CDN swap-in from overflowing a strip.
@@ -193,6 +201,12 @@ export function App() {
   }, []);
 
   useEffect(() => () => { clearTimeout(toastTimer.current); detachDrag(); }, []);
+
+  useEffect(() => {
+    if (!unfoldingId) return;
+    const timer = setTimeout(() => setUnfoldingId(null), 300);
+    return () => clearTimeout(timer);
+  }, [unfoldingId]);
 
   useEffect(() => {
     const receive = (event) => {
@@ -271,7 +285,7 @@ export function App() {
   const commit = (action) => {
     if (!extensionRef.current) { dispatch(action); return; }
     const commandId = makeNoteId();
-    const optimistic = action.type === "drop" || action.type === "remove";
+    const optimistic = action.type === "drop" || action.type === "remove" || action.type === "draw-fortune";
     // Pointer drops update immediately so the drag overlay is replaced at the same coordinates.
     // A throw-away does the same: the strip is gone, and there is no undo to wait for.
     // The next Worker snapshot remains authoritative and will reconcile any concurrent change.
@@ -432,9 +446,42 @@ export function App() {
     scissorsRef.current?.focus();
   };
 
+  const drawFortune = async () => {
+    if (drawingFortuneRef.current || dragRef.current) return;
+    drawingFortuneRef.current = true;
+    setDrawingFortune(true);
+    try {
+      await document.fonts.load(`${FORTUNE.fontSize}px "ABeeZee"`);
+      const current = viewRef.current.store.notes;
+      if (current.filter((note) => note.kind !== "fortune").length >= MAX_NOTES) {
+        announce("The desk has 80 pieces. Remove a piece before opening a fortune.");
+        return;
+      }
+      const previous = previousFortuneRef.current ?? current.find((note) => note.kind === "fortune")?.promptId;
+      const prompt = pickFortune(previous, measureText);
+      if (!prompt) throw new Error("No prompt fits");
+      const note = createFortuneNote(prompt, makeNoteId(), measureText, ++topLayer.current);
+      previousFortuneRef.current = prompt.id;
+      setStyleOpen(false);
+      setCutting(false);
+      setUnfoldingId(note.id);
+      commit({ type: "draw-fortune", note });
+    } catch {
+      announce("That fortune couldn’t open. Please try again.");
+    } finally {
+      drawingFortuneRef.current = false;
+      setDrawingFortune(false);
+    }
+  };
+
   const cutNote = (id, gap) => {
-    const original = notes.find((note) => note.id === id);
+    let original = notes.find((note) => note.id === id);
     if (!original) return;
+    if (original.kind === "fortune" && original.location === "tray") {
+      const packed = layout.items.find((note) => note.id === id);
+      original = { ...packed, fontSize: displayFontSize(packed, measuredTextWidths.get(id)) };
+      delete original.intrinsicWidth;
+    }
     if (notes.length >= MAX_NOTES) { announce("The desk has 80 pieces. Remove a piece before cutting again."); return; }
     const halves = splitPaper(original.location === "tray" ? { ...original, angle: 0 } : original, gap);
     if (!halves) return;
@@ -479,11 +526,16 @@ export function App() {
         <div className="back-sheet" aria-hidden="true" />
         <section className="poem-sheet" aria-label="Poem page"><PaperTexture theme={theme} /></section>
         {notes.filter((note) => note.location !== "tray" && note.id !== drag?.note.id).map((note) => <PaperStrip key={note.id} note={note} theme={theme} sceneRef={sceneRef}
+          unfolding={note.id === unfoldingId}
           cutting={cutting} onCut={cutNote} onPickUp={pickUpNote} onRemove={removeNote}
           measuredTextWidth={measuredTextWidths.get(note.id)}
           landingFrom={landing?.id === note.id ? landing : null} />)}
         {drag && <PaperStrip note={{ ...drag.note, ...drag.position, location: "desk", colorSource: undefined }} drag={drag} theme={theme} sceneRef={sceneRef}
           measuredTextWidth={measuredTextWidths.get(drag.note.id)} />}
+        <button className="object-button fortune-button" aria-label="Open a fortune cookie" disabled={drawingFortune} onClick={drawFortune}>
+          <span className="fortune-art"><img src="/assets/fortune-cookie.png" alt="" draggable="false" /></span>
+          <span className="object-hint">A little inspiration</span>
+        </button>
         <button className="object-button scissors-button" ref={scissorsRef} aria-label={cutting ? "Exit cutting mode" : "Enter cutting mode"}
           aria-pressed={cutting} onClick={() => { setStyleOpen(false); setCutting((current) => !current); }}>
           <img src="/assets/scissors.png" alt="" draggable="false" />

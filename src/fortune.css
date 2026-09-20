@@ -1,0 +1,24 @@
+@font-face {
+  font-family: "ABeeZee";
+  src: url("/fonts/abeezee.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+.fortune-end {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 28.5px;
+  max-width: 100%;
+  background-size: 376.5px 100%;
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+.fortune-end-left { left: 0; background-position: left center; }
+.fortune-end-right { right: 0; background-position: right center; }
+.fortune-strip .paper-face { box-shadow: 0 4px 4px #0004; }
+.fortune-strip.is-unfolding .paper-face { animation: fortune-unfold 280ms cubic-bezier(.2,.75,.25,1); }
+@keyframes fortune-unfold { from { clip-path: inset(-8px 100% -8px -8px); } to { clip-path: inset(-8px); } }
+@media (prefers-reduced-motion: reduce) { .fortune-strip.is-unfolding .paper-face { animation: none; } }

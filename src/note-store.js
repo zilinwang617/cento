@@ -122,6 +122,15 @@ function moveBefore(state, id, beforeNoteId) {
 export function noteReducer(state, action) {
   if (action.type === "hydrate") return normalizeDocument(action.document) ?? state;
   switch (action.type) {
+    case "draw-fortune": {
+      if (!action.note || action.note.kind !== "fortune" || typeof action.note.text !== "string") return state;
+      const retained = state.notes.filter((note) => note.kind !== "fortune");
+      if (retained.length >= MAX_NOTES) return state;
+      const id = action.note.id && !retained.some((note) => note.id === action.note.id) ? action.note.id : makeNoteId();
+      const note = normalizeNote({ ...action.note, id, fortuneDrawId: id, location: "desk", addedOrder: nextAddedOrder(state) }, nextAddedOrder(state));
+      const ids = new Set(retained.map((item) => item.id));
+      return mutated(state, { notes: [...retained, note], sequence: [id, ...state.sequence.filter((entry) => ids.has(entry))] });
+    }
     case "add": {
       if (!Array.isArray(action.notes) || !action.notes.length || state.notes.length + action.notes.length > MAX_NOTES) return state;
       const existing = new Set(state.notes.map((note) => note.id));
@@ -176,7 +185,8 @@ export function noteReducer(state, action) {
 
 export function validateDocumentAction(action) {
   if (!action || typeof action.type !== "string") return "Missing action type.";
-  if (!["add", "remove", "cut", "move", "drop"].includes(action.type)) return "Unsupported document action.";
+  if (!["add", "remove", "cut", "move", "drop", "draw-fortune"].includes(action.type)) return "Unsupported document action.";
+  if (action.type === "draw-fortune") return action.note?.kind === "fortune" && typeof action.note.text === "string" && action.note.text.trim() ? null : "A fortune note is required.";
   if (action.type === "add") return Array.isArray(action.notes) && action.notes.length ? null : "A note batch is required.";
   if (typeof action.id !== "string") return "A note ID is required.";
   if (action.type === "cut" && (!Array.isArray(action.children) || action.children.length !== 2)) return "A cut must create two pieces.";

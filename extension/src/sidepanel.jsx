@@ -6,6 +6,8 @@ import { MESSAGE } from "../../src/protocol.js";
 import { displayFontSize, insertAt, packTray, trayInsertionIndex } from "../../src/tray.js";
 import { createTextMeasure, fontStack, fontWeight, libraryCategory, loadNoteFonts, typeface } from "../../src/typeface.js";
 import "./sidepanel.css";
+import { FortuneEnds } from "../../src/FortuneEnds.jsx";
+import "../../src/fortune.css";
 
 const UNKNOWN_META = { source: { url: "", title: "", capturedAt: "" }, typography: { sourceFontStack: "", category: "unknown", confidence: 0 } };
 const layoutSettings = (width) => ({ width, top: 0, bottom: 0, padding: 20, gapX: 14, gapY: 18, startY: 18, edge: 58, speed: 520 });
@@ -16,7 +18,7 @@ const measureText = (text, typefaceId) => (textMeasure ??= createTextMeasure())(
 function Paper({ note, measuredTextWidth, dragging, onPointerDown, onRemove, onNudge }) {
   const source = note.source?.title || note.source?.url || "Collected text";
   const assigned = `${libraryCategory(note.typography?.category)} → ${typeface(note.typeface).family}`;
-  return <button type="button" className={`side-paper${dragging ? " is-dragging" : ""}`}
+  return <button type="button" className={`side-paper${note.kind === "fortune" ? " fortune-strip" : ""}${dragging ? " is-dragging" : ""}`}
     aria-label={`Move paper: ${note.text}`} title={`${source} · ${assigned}`} data-note-id={note.id}
     onPointerDown={onPointerDown} onKeyDown={(event) => {
       if (event.key === "Delete" || event.key === "Backspace") { event.preventDefault(); onRemove(note.id); }
@@ -26,6 +28,7 @@ function Paper({ note, measuredTextWidth, dragging, onPointerDown, onRemove, onN
     style={{ left: note.x, top: note.y, width: note.width, height: note.height,
       "--type-size": `${displayFontSize(note, measuredTextWidth)}px`, "--type-face": fontStack(note.typeface),
       "--type-weight": fontWeight(note.typeface) }}>
+    <FortuneEnds note={note} />
     <span>{note.text}</span>
   </button>;
 }

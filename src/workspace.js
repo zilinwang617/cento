@@ -99,7 +99,8 @@ export function isOnPage(note) {
   return x >= ARTBOARD.x && x <= ARTBOARD.x + ARTBOARD.width && y >= ARTBOARD.y && y <= ARTBOARD.y + ARTBOARD.height;
 }
 
-export function noteColors(_note, theme) {
+export function noteColors(note, theme) {
+  if (note.kind === "fortune") return { paper: "#ffffff", ink: "#364891" };
   // Paper keeps the active palette in the tray, while dragging, and on the page.
   return { paper: theme.strip, ink: theme.ink };
 }

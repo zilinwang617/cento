@@ -28,7 +28,9 @@ export const OTHER_CATEGORY = "other";
 export const GOOGLE_FONTS_HREF =
   "https://fonts.googleapis.com/css2?family=Charmonman:wght@700&family=Lexend+Giga&family=Libre+Baskerville&family=Poppins&display=swap";
 
-const byId = new Map(TYPEFACES.map((face) => [face.id, face]));
+// Fortune's face is recognized by notes/export, but never enters the capture font lottery.
+const FORTUNE_FACE = { id: "abeezee", family: "ABeeZee", category: "sans", size: 20, weight: 400, fallback: "Arial, sans-serif" };
+const byId = new Map([...TYPEFACES, FORTUNE_FACE].map((face) => [face.id, face]));
 const byCategory = new Map();
 for (const face of TYPEFACES) byCategory.set(face.category, [...(byCategory.get(face.category) ?? []), face]);
 
@@ -97,5 +99,5 @@ export function createTextMeasure() {
 }
 
 export function loadNoteFonts() {
-  return Promise.all(TYPEFACES.map((face) => document.fonts.load(`${face.weight} ${referenceSize(face.id)}px "${face.family}"`)));
+  return Promise.all([...TYPEFACES, FORTUNE_FACE].map((face) => document.fonts.load(`${face.weight} ${referenceSize(face.id)}px "${face.family}"`)));
 }

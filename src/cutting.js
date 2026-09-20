@@ -51,6 +51,10 @@ export function splitPaper(note, gap, separation = 10) {
       x: note.x + note.width / 2 + Math.cos(angle) * displacement - width / 2,
       y: note.y + Math.sin(angle) * displacement,
       cutSide: side < 0 ? "right" : "left",
+      ...(note.kind === "fortune" ? {
+        fortuneLeft: side < 0 && note.fortuneLeft,
+        fortuneRight: side > 0 && note.fortuneRight,
+      } : {}),
     };
   };
   return [

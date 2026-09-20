@@ -12,6 +12,7 @@ const watch = process.argv.includes("--watch");
 await rm(outDir, { recursive: true, force: true });
 await mkdir(path.join(outDir, "fonts"), { recursive: true });
 await mkdir(path.join(outDir, "icons"), { recursive: true });
+await mkdir(path.join(outDir, "assets"), { recursive: true });
 
 const common = { configFile: false, root: extensionRoot, publicDir: false, logLevel: "info" };
 const watchOption = watch ? {} : undefined;
@@ -56,6 +57,9 @@ for (const entry of [
 await copyFile(path.join(extensionRoot, "manifest.json"), path.join(outDir, "manifest.json"));
 await copyFile(path.join(projectRoot, "public", "fonts", "special-elite.ttf"), path.join(outDir, "fonts", "special-elite.ttf"));
 await copyFile(path.join(projectRoot, "public", "fonts", "pacifico.ttf"), path.join(outDir, "fonts", "pacifico.ttf"));
+await copyFile(path.join(projectRoot, "public", "fonts", "abeezee.ttf"), path.join(outDir, "fonts", "abeezee.ttf"));
+await copyFile(path.join(projectRoot, "public", "fonts", "ABeeZee-OFL.txt"), path.join(outDir, "fonts", "ABeeZee-OFL.txt"));
+await copyFile(path.join(projectRoot, "public", "assets", "fortune-ends.svg"), path.join(outDir, "assets", "fortune-ends.svg"));
 await Promise.all([16, 32, 48, 128].map((size) => copyFile(
   path.join(extensionRoot, "icons", `icon-${size}.png`),
   path.join(outDir, "icons", `icon-${size}.png`),
