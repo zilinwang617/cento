@@ -1,6 +1,12 @@
-# Cut-Ups Canvas
+# Cento
 
-A desktop web prototype for arranging and cutting text strips on a canvas.
+A desktop web application for arranging and cutting text strips on a canvas. Including a Chrome extension that allows you to collect any text on any website, and a main workspace to cut, arrange and piece together your own cut-up poem.
+
+## Team Members
+
+- Zilin Wang — [leowangsz@outlook.com](mailto:leowangsz@outlook.com)
+- Peter Ju — [peterju00004@gmail.com](mailto:peterju00004@gmail.com)
+
 
 ## Setup
 
@@ -18,11 +24,11 @@ npm install
 npm run dev
 ```
 
-Open the local URL printed in the terminal (usually `http://localhost:5173`).
+Open the local URL with Google Chrome browser printed in the terminal (usually `http://localhost:5173`).
 
-## Chrome Extension MVP
+## Chrome Extension
 
-The Extension is delivered as an unpacked Manifest V3 extension. Use **Google Chrome 116 or later** for development and acceptance testing; do not use Arc for Extension QA.
+The Cento extension is delivered as an unpacked Manifest V3 extension. Use **Google Chrome 116 or later** for development and acceptance testing; do not use thrid party browser including chrome-powered ones.
 
 ### Build the Extension
 
@@ -46,7 +52,7 @@ The Extension is delivered as an unpacked Manifest V3 extension. Use **Google Ch
 
 The directory to load into Chrome is `dist/extension`. Do not select the source `extension` directory.
 
-### Load It in Google Chrome
+### Load  in Google Chrome
 
 1. Open Google Chrome and navigate to `chrome://extensions`.
 2. Turn on **Developer mode** in the top-right corner.
@@ -82,10 +88,7 @@ The local main-site bridge is limited to `http://localhost/*` and `http://127.0.
 ### Port
 To prevent port conflicts and maintain a consistent url that points to the webpage, the dev server strictly uses port 5173. If port 5173 is already taken, the dev server will fail to start: check which process is using the port and terminate it.
 
-### Verification
+## License
 
-```bash
-npm run test:extension
-npm run build
-npm run test:sites
-```
+Copyright © 2026 Zilin Wang and Peter Ju. This project may be used, copied, and modified for non-commercial purposes only. Commercial use is prohibited without prior written permission from the copyright holders.
+
