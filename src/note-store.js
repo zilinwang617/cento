@@ -152,6 +152,12 @@ export function noteReducer(state, action) {
       if (!state.notes.some((note) => note.id === action.id)) return state;
       return mutated(state, { notes: state.notes.filter((note) => note.id !== action.id), sequence: state.sequence.filter((id) => id !== action.id) });
     }
+    // Emptying the bin clears the desk and the tray together. It is confirmed in the UI first,
+    // and like a single throw-away there is nothing kept to restore.
+    case "clear": {
+      if (!state.notes.length) return state;
+      return mutated(state, { notes: [], sequence: [] });
+    }
     case "cut": {
       const parent = state.notes.find((note) => note.id === action.id);
       if (!parent || !Array.isArray(action.children) || action.children.length !== 2 || state.notes.length >= MAX_NOTES) return state;
@@ -190,9 +196,10 @@ export function noteReducer(state, action) {
 
 export function validateDocumentAction(action) {
   if (!action || typeof action.type !== "string") return "Missing action type.";
-  if (!["add", "remove", "cut", "move", "drop", "draw-fortune"].includes(action.type)) return "Unsupported document action.";
+  if (!["add", "remove", "clear", "cut", "move", "drop", "draw-fortune"].includes(action.type)) return "Unsupported document action.";
   if (action.type === "draw-fortune") return action.note?.kind === "fortune" && typeof action.note.text === "string" && action.note.text.trim() ? null : "A fortune note is required.";
   if (action.type === "add") return Array.isArray(action.notes) && action.notes.length ? null : "A note batch is required.";
+  if (action.type === "clear") return null;
   if (typeof action.id !== "string") return "A note ID is required.";
   if (action.type === "cut" && (!Array.isArray(action.children) || action.children.length !== 2)) return "A cut must create two pieces.";
   if (action.type === "drop" && !["tray", "desk"].includes(action.location)) return "Invalid note location.";

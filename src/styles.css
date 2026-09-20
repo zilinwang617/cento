@@ -323,9 +323,17 @@ button:disabled {
 .trash-can {
   position: absolute;
   z-index: 200;
-  pointer-events: none;
+  padding: 0;
+  border: 0;
+  background: none;
   transform-origin: 50% 86%;
   transition: transform 180ms cubic-bezier(.2, .75, .25, 1);
+}
+
+/* A strip released over the bin must not land on the button underneath it. */
+.workspace.is-dragging .trash-can,
+.trash-can:disabled {
+  pointer-events: none;
 }
 
 .trash-can img {
@@ -358,9 +366,61 @@ button:disabled {
   opacity: 0;
 }
 
-.trash-can.is-armed .trash-note {
+.trash-can.is-armed .trash-note,
+.trash-can:hover .trash-note,
+.trash-can:focus-visible .trash-note {
   opacity: 1;
   transition: opacity 150ms ease;
+}
+
+.trash-can.is-asking,
+.trash-can:hover:not(:disabled) {
+  transform: scale(1.03) rotate(-1deg);
+}
+
+.clear-confirm {
+  position: absolute;
+  z-index: 600;
+  left: 1196px;
+  top: 722px;
+  width: 232px;
+  padding: 18px;
+  background: #f5f1df;
+  color: #3a3732;
+  box-shadow: 6px 9px 22px #0004;
+  transform: rotate(1.2deg);
+}
+
+.clear-confirm > p {
+  margin: 0 0 16px;
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.clear-choices {
+  display: flex;
+  gap: 10px;
+}
+
+.clear-choices button {
+  flex: 1;
+  padding: 8px 6px;
+  border: 1px solid #3a373233;
+  background: #fffdf4;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  box-shadow: 1px 2px 3px #0002;
+}
+
+.clear-choices button.is-yes {
+  background: #bf6051;
+  border-color: #a5503f;
+  color: #fdf6ea;
+}
+
+.clear-choices button:hover {
+  transform: translateY(-1px);
 }
 
 .object-button {

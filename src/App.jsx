@@ -176,7 +176,10 @@ export function App() {
   const [drawingFortune, setDrawingFortune] = useState(false);
   const drawingFortuneRef = useRef(false);
   const previousFortuneRef = useRef(null);
+  const trashRef = useRef(null);
+  const clearPanelRef = useRef(null);
   const [unfoldingId, setUnfoldingId] = useState(null);
+  const [confirmingClear, setConfirmingClear] = useState(false);
   const theme = THEMES.find((item) => item.id === themeId);
   const trayNotes = useMemo(() => orderedNotes(store, "tray"), [store]);
   // Remeasuring once the faces land keeps a CDN swap-in from overflowing a strip.
@@ -282,6 +285,27 @@ export function App() {
     };
   }, [styleOpen]);
 
+  useEffect(() => {
+    if (!confirmingClear) return;
+    clearPanelRef.current?.querySelector("button")?.focus();
+    const outside = (event) => {
+      if (!clearPanelRef.current?.contains(event.target) && !trashRef.current?.contains(event.target)) setConfirmingClear(false);
+    };
+    const escape = (event) => {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        setConfirmingClear(false);
+        trashRef.current?.focus();
+      }
+    };
+    document.addEventListener("pointerdown", outside);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [confirmingClear]);
+
   const announce = (message) => {
     setToast(message);
     clearTimeout(toastTimer.current);
@@ -290,7 +314,7 @@ export function App() {
   const commit = (action) => {
     if (!extensionRef.current) { dispatch(action); return; }
     const commandId = makeNoteId();
-    const optimistic = action.type === "drop" || action.type === "remove" || action.type === "draw-fortune";
+    const optimistic = action.type === "drop" || action.type === "remove" || action.type === "clear" || action.type === "draw-fortune";
     // Pointer drops update immediately so the drag overlay is replaced at the same coordinates.
     // A throw-away does the same: the strip is gone, and there is no undo to wait for.
     // The next Worker snapshot remains authoritative and will reconcile any concurrent change.
@@ -333,6 +357,7 @@ export function App() {
       clientX: event.clientX, clientY: event.clientY, offset: { x: point.x - position.x, y: point.y - position.y },
       inTray: note.location === "tray", index, grip: `${grip.x}px ${grip.y}px`, tilt: 0, lastMove: performance.now() };
     sceneRef.current.focus({ preventScroll: true });
+    setConfirmingClear(false);
     setLanding(null);
     dragRef.current = next;
     setDrag(next);
@@ -449,6 +474,15 @@ export function App() {
   const removeNote = (id) => {
     discardNote(id);
     scissorsRef.current?.focus();
+  };
+
+  // Tipping the whole bin out is the one destructive action that asks first: it takes the desk and
+  // the tray together, and like a single throw-away there is no undo.
+  const clearAllNotes = () => {
+    setConfirmingClear(false);
+    if (!viewRef.current.store.notes.length) return;
+    commit({ type: "clear" });
+    trashRef.current?.focus();
   };
 
   const drawFortune = async () => {
@@ -576,15 +610,25 @@ export function App() {
           <span className="export-art"><img src="/assets/export-container.png" alt="" draggable="false" /></span>
           <span className="object-hint">Just the page. Ready to keep.</span>
         </button>
-        <div className={`trash-can${drag?.overTrash ? " is-armed" : ""}`} style={{ left: TRASH.x, top: TRASH.y, width: TRASH.width, height: TRASH.height }} aria-hidden="true">
+        <button className={`trash-can${drag?.overTrash ? " is-armed" : ""}${confirmingClear ? " is-asking" : ""}`} ref={trashRef}
+          style={{ left: TRASH.x, top: TRASH.y, width: TRASH.width, height: TRASH.height }}
+          aria-label="Empty the bin" aria-expanded={confirmingClear} aria-controls="clear-confirm" disabled={!notes.length}
+          onClick={() => { setStyleOpen(false); setConfirmingClear((current) => !current); }}>
           <img src="/assets/trash-can.png" alt="" draggable="false" />
-          <span className="trash-note">Let go to throw it away</span>
-        </div>
+          <span className="trash-note">{drag ? "Let go to throw it away" : "Empty the bin"}</span>
+        </button>
+        {confirmingClear && <div id="clear-confirm" className="clear-confirm" ref={clearPanelRef} role="dialog" aria-label="Empty the bin">
+          <p>Throw every piece away? This can’t be undone.</p>
+          <div className="clear-choices">
+            <button className="is-yes" onClick={clearAllNotes}>Yes, empty it</button>
+            <button onClick={() => { setConfirmingClear(false); trashRef.current?.focus(); }}>Cancel</button>
+          </div>
+        </div>}
         <span ref={measureRef} className="text-measure" aria-hidden="true" />
       </div>
       <p id="paper-instructions" className="visually-hidden">{cutting
         ? "Point between two words and click to cut. Or focus a strip, use left and right arrows to select a gap, then Enter to cut. Press Escape or click the scissors to return to dragging."
-        : "Drag in the left tray to reorder, or onto the page to compose. Hold near the top or bottom of the tray to scroll while dragging. Escape cancels a drag. Arrow keys reorder tray pieces or move page pieces; Shift moves farther on the page. Drop a piece on the bin at the right, or press Delete, to throw it away for good — this cannot be undone. Click the scissors to cut. Double-click empty tray space to add words."}</p>
+        : "Drag in the left tray to reorder, or onto the page to compose. Hold near the top or bottom of the tray to scroll while dragging. Escape cancels a drag. Arrow keys reorder tray pieces or move page pieces; Shift moves farther on the page. Drop a piece on the bin at the right, or press Delete, to throw it away for good — this cannot be undone. Click the bin to empty the whole desk after confirming. Click the scissors to cut. Double-click empty tray space to add words."}</p>
       <div className={`toast${toast ? " is-visible" : ""}`} role="status">{toast}</div>
       {!import.meta.env.DEV && !extensionConnected && <div className="connection-banner" role="status">Open the Cento Extension to connect your collected words.</div>}
     </main>
