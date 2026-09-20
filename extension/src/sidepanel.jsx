@@ -9,6 +9,7 @@ import "./sidepanel.css";
 import { FortuneEnds } from "../../src/FortuneEnds.jsx";
 import "../../src/fortune.css";
 
+const CANVAS_URL = "http://localhost:5173/";
 const UNKNOWN_META = { source: { url: "", title: "", capturedAt: "" }, typography: { sourceFontStack: "", category: "unknown", confidence: 0 } };
 const layoutSettings = (width) => ({ width, top: 0, bottom: 0, padding: 20, gapX: 14, gapY: 18, startY: 18, edge: 58, speed: 520 });
 
@@ -25,9 +26,11 @@ function Paper({ note, measuredTextWidth, dragging, onPointerDown, onRemove, onN
       if (["ArrowLeft", "ArrowUp"].includes(event.key)) { event.preventDefault(); onNudge(note.id, -1); }
       if (["ArrowRight", "ArrowDown"].includes(event.key)) { event.preventDefault(); onNudge(note.id, 1); }
     }}
-    style={{ left: note.x, top: note.y, width: note.width, height: note.height,
+    style={{
+      left: note.x, top: note.y, width: note.width, height: note.height,
       "--type-size": `${displayFontSize(note, measuredTextWidth)}px`, "--type-face": fontStack(note.typeface),
-      "--type-weight": fontWeight(note.typeface) }}>
+      "--type-weight": fontWeight(note.typeface)
+    }}>
     <FortuneEnds note={note} />
     <span>{note.text}</span>
   </button>;
@@ -129,7 +132,7 @@ function SidePanel() {
       port.postMessage({ type: MESSAGE.hello });
     };
     connect();
-    chrome.runtime.sendMessage({ type: MESSAGE.getPending }).then((items) => items.forEach(handlePending)).catch(() => {});
+    chrome.runtime.sendMessage({ type: MESSAGE.getPending }).then((items) => items.forEach(handlePending)).catch(() => { });
     return () => { clearTimeout(reconnectTimer); clearTimeout(toastTimerRef.current); portRef.current?.disconnect(); };
   }, []);
 
@@ -144,7 +147,7 @@ function SidePanel() {
 
   useEffect(() => {
     let active = true;
-    loadNoteFonts().then(() => { if (active) setFontReady(true); }).catch(() => {});
+    loadNoteFonts().then(() => { if (active) setFontReady(true); }).catch(() => { });
     return () => { active = false; };
   }, []);
 
@@ -166,9 +169,11 @@ function SidePanel() {
     event.preventDefault();
     const rect = scrollRef.current.getBoundingClientRect();
     const point = { x: event.clientX - rect.left, y: event.clientY - rect.top + scrollRef.current.scrollTop };
-    const next = { note, pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY,
+    const next = {
+      note, pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY,
       point, position: { x: note.x, y: note.y }, index: trayNotes.findIndex((item) => item.id === note.id),
-      offset: { x: point.x - note.x, y: point.y - note.y } };
+      offset: { x: point.x - note.x, y: point.y - note.y }
+    };
     scrollRef.current.setPointerCapture(event.pointerId);
     dragRef.current = next;
     setDrag(next);
@@ -179,8 +184,10 @@ function SidePanel() {
     if (!current) return;
     dragRef.current = null;
     setDrag(null);
-    if (!cancel) submit({ type: "drop", id: current.note.id, location: "tray",
-      beforeNoteId: beforeNoteIdAt(documentRef.current, current.note.id, current.index) });
+    if (!cancel) submit({
+      type: "drop", id: current.note.id, location: "tray",
+      beforeNoteId: beforeNoteIdAt(documentRef.current, current.note.id, current.index)
+    });
     if (scrollRef.current.hasPointerCapture(current.pointerId)) scrollRef.current.releasePointerCapture(current.pointerId);
     requestAnimationFrame(() => scrollRef.current.querySelector(`[data-note-id="${current.note.id}"]`)?.focus({ preventScroll: true }));
   };
@@ -227,6 +234,10 @@ function SidePanel() {
     submit({ type: "drop", id, location: "tray", beforeNoteId: beforeNoteIdAt(documentRef.current, id, next) });
   };
 
+  const openCanvas = () => {
+    chrome.tabs.create({ url: CANVAS_URL });
+  };
+
   return <main className={`side-panel${externalDrag ? " is-receiving" : ""}`}
     onDragEnter={(event) => { if (event.dataTransfer.types.includes("text/plain")) setExternalDrag(true); }}
     onDragOver={(event) => { if (event.dataTransfer.types.includes("text/plain")) event.preventDefault(); }}
@@ -234,7 +245,7 @@ function SidePanel() {
     onDrop={dropExternal}>
     <header>
       <div><h1>Cento</h1><span className={`connection-dot${connected ? " is-connected" : ""}`} aria-label={connected ? "Saved locally" : "Reconnecting"} /></div>
-      <p>Select words on any page, then drag them here.</p>
+      <p>Select some text: drag it here, or right-click it and choose "Save to Cento".</p>
     </header>
     <section className="side-list" ref={scrollRef} aria-label="Collected paper strips"
       data-revision={documentState.revision}
@@ -242,14 +253,29 @@ function SidePanel() {
       onPointerUp={(event) => { if (event.pointerId === dragRef.current?.pointerId) { updateDrag(event.clientX, event.clientY); finishDrag(); } }}
       onPointerCancel={() => finishDrag(true)} onLostPointerCapture={() => finishDrag(true)}>
       <div className="side-list-content" style={{ height: Math.max(scrollRef.current?.clientHeight ?? 0, layout.height + 30) }}>
-        {!trayNotes.length && !drag && <div className="empty-state"><span>A few words can become a place.</span><small>Drag a selection here, or right-click it and choose “Save to Cento”.</small></div>}
+        {!trayNotes.length && !drag && <div className="empty-state"><span>A few words can become a place.</span></div>}
         {layout.items.map((note) => note.id === drag?.note.id
           ? <div className="side-placeholder" key={note.id} style={{ left: note.x, top: note.y, width: note.width, height: note.height }} />
           : <Paper key={note.id} note={note} measuredTextWidth={measuredTextWidths.get(note.id)} onPointerDown={(event) => startDrag(note, event)}
             onRemove={(id) => submit({ type: "remove", id })} onNudge={nudge} />)}
-        {drag && <Paper note={{ ...drag.note, ...drag.position }} measuredTextWidth={measureText(drag.note.text, drag.note.typeface)} dragging onPointerDown={() => {}} onRemove={() => {}} onNudge={() => {}} />}
+        {drag && <Paper note={{ ...drag.note, ...drag.position }} measuredTextWidth={measureText(drag.note.text, drag.note.typeface)} dragging onPointerDown={() => { }} onRemove={() => { }} onNudge={() => { }} />}
       </div>
     </section>
+    <footer className="assemble-bar">
+      <span className="assemble-count">
+        {trayNotes.length > 0
+          ? <><strong>{trayNotes.length}</strong> {trayNotes.length === 1 ? "piece" : "pieces"} collected</>
+          : "Collect text to begin"}
+      </span>
+      <button
+        type="button"
+        className="assemble-button"
+        disabled={trayNotes.length === 0}
+        onClick={openCanvas}
+      >
+        Assemble into a poem
+      </button>
+    </footer>
     <div className="drop-overlay" aria-hidden={!externalDrag}><span>Drop to collect</span></div>
     <div className={`side-toast${toast ? " is-visible" : ""}`} role="status">{toast}</div>
   </main>;

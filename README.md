@@ -79,6 +79,9 @@ Chrome still needs to be reloaded from `chrome://extensions` after a relevant bu
 
 The local main-site bridge is limited to `http://localhost/*` and `http://127.0.0.1/*`. The real extension profile starts with an empty document; the website's sample notes remain development-only.
 
+### Port
+To prevent port conflicts and maintain a consistent url that points to the webpage, the dev server strictly uses port 5173. If port 5173 is already taken, the dev server will fail to start: check which process is using the port and terminate it.
+
 ### Verification
 
 ```bash
