@@ -1,5 +1,6 @@
 import { ARTBOARD, LETTER, noteColors } from "./workspace.js";
 import { displayFontSize } from "./tray.js";
+import { TEXTURE, coverRect, loadTextures, texture, texturePlacement } from "./texture.js";
 import { createTextMeasure, fontShorthand, loadNoteFonts } from "./typeface.js";
 import { FORTUNE } from "./fortune.js";
 
@@ -11,6 +12,9 @@ export const EXPORT_DPI = 300;
 export async function renderPoem(notes, theme) {
   await loadNoteFonts();
   const measure = createTextMeasure();
+  const printed = notes.filter((note) => note.location !== "tray");
+  // One decode per paper for the whole page, not one per strip: a page can hold eighty.
+  const papers = await loadTextures(printed.filter((note) => note.kind !== "fortune").map((note) => note.texture));
   let fortuneEnds;
   if (notes.some((note) => note.kind === "fortune" && note.location !== "tray")) {
     fortuneEnds = new Image();
@@ -27,21 +31,19 @@ export async function renderPoem(notes, theme) {
   context.fillStyle = theme.page;
   context.fillRect(0, 0, ARTBOARD.width, ARTBOARD.height);
   if (theme.texture) {
-    const texture = new Image();
-    texture.src = theme.texture;
-    await texture.decode();
+    const sheet = new Image();
+    sheet.src = theme.texture;
+    await sheet.decode();
     // Match the page and swatch's centered object-fit: cover, including Figma's fill opacity.
-    const fit = Math.max(ARTBOARD.width / texture.naturalWidth, ARTBOARD.height / texture.naturalHeight);
-    const width = texture.naturalWidth * fit;
-    const height = texture.naturalHeight * fit;
+    const area = coverRect({ x: 0, y: 0, width: ARTBOARD.width, height: ARTBOARD.height }, sheet);
     context.save();
     context.globalAlpha = theme.textureOpacity;
-    context.drawImage(texture, (ARTBOARD.width - width) / 2, (ARTBOARD.height - height) / 2, width, height);
+    context.drawImage(sheet, area.x, area.y, area.width, area.height);
     context.restore();
   }
   context.translate(-ARTBOARD.x, -ARTBOARD.y);
   // Clip to the page: tray, tools and off-page parts are never exported.
-  for (const note of notes.filter((item) => item.location !== "tray").sort((a, b) => a.z - b.z)) {
+  for (const note of printed.sort((a, b) => a.z - b.z)) {
     const colors = noteColors(note, theme);
     context.save();
     context.translate(note.x + note.width / 2, note.y + note.height / 2);
@@ -52,6 +54,24 @@ export async function renderPoem(notes, theme) {
     context.fillStyle = colors.paper;
     context.fillRect(-note.width / 2, -note.height / 2, note.width, note.height);
     context.shadowColor = "transparent";
+    // The paper, multiplied onto the fill exactly as .paper-face::after does. Clipping to the
+    // strip keeps multiply off the page underneath — inside the clip there is only the opaque
+    // fill drawn a moment ago. Shadow is already off, or the paper would cast a second one.
+    const paper = note.kind === "fortune" ? null : papers.get(note.texture);
+    if (paper) {
+      const patch = texturePlacement(note.id, note.width, note.height);
+      context.save();
+      context.beginPath();
+      context.rect(-note.width / 2, -note.height / 2, note.width, note.height);
+      context.clip();
+      context.globalCompositeOperation = "multiply";
+      context.globalAlpha = texture(note.texture).opacity;
+      // Same workspace pixels CSS uses: the sheet at TEXTURE size, its corner at the same patch.
+      context.drawImage(paper, -note.width / 2 + patch.x, -note.height / 2 + patch.y, TEXTURE.width, TEXTURE.height);
+      // restore() puts back globalCompositeOperation too — without it the multiply would leak onto
+      // the ink, and onto every strip drawn after this one.
+      context.restore();
+    }
     if (note.kind === "fortune" && fortuneEnds) {
       const edge = Math.min(FORTUNE.endWidth, note.width);
       if (note.fortuneLeft) context.drawImage(fortuneEnds, 0, 0, edge, 52, -note.width / 2, -note.height / 2, edge, note.height);

@@ -1,3 +1,4 @@
+import { isTextureId, seededTexture } from "./texture.js";
 import { isTypefaceId, referenceSize, seededTypeface } from "./typeface.js";
 
 export const DOCUMENT_SCHEMA_VERSION = 1;
@@ -60,6 +61,9 @@ function normalizeNote(note, fallbackOrder) {
   const typography = { ...EMPTY_TYPOGRAPHY, ...(note.typography ?? {}) };
   // Cut halves inherit the parent's face; demo and pre-typeface notes get a stable seeded draw.
   const typeface = isTypefaceId(note.typeface) ? note.typeface : seededTypeface(typography.category, id);
+  // Same rule for paper: cut halves inherit the parent's, and anything older than this feature
+  // gets a draw seeded from its id so it keeps the same sheet across reloads.
+  const texture = isTextureId(note.texture) ? note.texture : seededTexture(id);
   const reference = referenceSize(typeface);
   if (typeface === "charmonman" && note.typefaceSize !== reference) {
     // Update existing paper as well as newly captured text. Record the applied reference so
@@ -94,6 +98,7 @@ function normalizeNote(note, fallbackOrder) {
     angle: Number.isFinite(note.angle) ? note.angle : 0,
     z: Number.isFinite(note.z) ? note.z : 1,
     typeface,
+    texture,
     source: note.source ?? null,
     typography,
   };

@@ -3,6 +3,7 @@ import { WORLD, ARTBOARD, THEMES, INITIAL_NOTES, TRASH, clamp, constrainNote, pl
 import { CUT_HIT, wordRuns, paperLocalPoint, nearestCut, splitPaper } from "./cutting.js";
 import { exportPoem } from "./export.js";
 import { TRAY, displayFontSize, packTray, insertAt, trayInsertionIndex, isInsideTray, trayScrollSpeed } from "./tray.js";
+import { TEXTURE, texture, texturePlacementCss } from "./texture.js";
 import { createTextMeasure, fontStack, fontWeight, loadNoteFonts, referenceSize } from "./typeface.js";
 import { MAX_NOTES, applyPendingActions, beforeNoteIdAt, createNoteStore, makeNoteId, noteReducer, orderedNotes } from "./note-store.js";
 import { MESSAGE, PROTOCOL_SOURCE, isBridgeMessage } from "./protocol.js";
@@ -119,6 +120,10 @@ function PaperStrip({ note, theme, sceneRef, cutting, onCut, onPickUp, onKeyMove
         "--strip-color": colors.paper, "--ink-color": colors.ink,
         "--grip": drag?.grip ?? "50% 50%", "--tilt": `${drag?.tilt ?? 0}deg`,
         "--type-size": `${typeSize}px`, "--type-face": fontStack(note.typeface), "--type-weight": fontWeight(note.typeface),
+        "--paper-texture": `url(${texture(note.texture).asset})`,
+        "--paper-texture-offset": texturePlacementCss(note.id, note.width, note.height),
+        // Fortune keeps its plain white slip, independent of the palette and of the paper library.
+        "--paper-texture-opacity": note.kind === "fortune" ? 0 : texture(note.texture).opacity,
       }}
       onPointerDown={pickUp} onKeyDown={discardOnDelete} onPointerMove={cutting ? previewCut : undefined}
       onPointerEnter={cutting ? previewCut : undefined} onPointerLeave={() => showCutTarget(null)} onBlur={() => showCutTarget(null)}
@@ -508,6 +513,8 @@ export function App() {
       <div className={`workspace${drag ? " is-dragging" : ""}`} ref={sceneRef} tabIndex={-1}
         style={{ transform: `translate(-50%, -50%) scale(${scale})`, "--page-color": theme.page, "--back-color": theme.back,
           "--page-x": `${ARTBOARD.x}px`, "--page-y": `${ARTBOARD.y}px`, "--page-width": `${ARTBOARD.width}px`, "--page-height": `${ARTBOARD.height}px`,
+          // The sheet is the same size under every strip, so it is declared once here.
+          "--paper-texture-size": `${TEXTURE.width}px ${TEXTURE.height}px`,
           "--cut-hit-padding": `${CUT_HIT.padding / scale}px` }}>
         <div className="word-tray"/>
         <section className="tray-scroll" ref={trayRef} aria-label="Collected paper strips" tabIndex={0}

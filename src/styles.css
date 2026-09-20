@@ -205,17 +205,28 @@ button:disabled {
   box-shadow: 0 2px 2px rgb(0 0 0 / 15%), inset 0 0.5px rgb(255 255 255 / 9%);
   transform-origin: var(--grip);
   transform: perspective(850px) rotateX(0deg) rotateY(0deg) rotate(0deg) scale(1);
+  /* The multiply above must not reach the desk or the page. The transform already opens a
+     stacking context, but that is incidental — say it, so removing the transform cannot leak it. */
+  isolation: isolate;
   transition: transform 220ms cubic-bezier(.18, .72, .28, 1), box-shadow 220ms ease, background-color 200ms ease, color 200ms ease;
 }
 
+/* The paper itself, multiplied onto --strip-color so the palette's hue survives. The sheet is laid
+   at a fixed size so the grain does not scale with the strip, and each strip sits on its own patch
+   of it — see TEXTURE and texturePlacement() in texture.js.
+   .paper-text is above this layer, so the ink stays solid. Fortune slips set opacity 0: their
+   white paper is independent of the palette, and of this. */
 .paper-face::after {
   content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
-  opacity: .055;
-  background: repeating-linear-gradient(7deg, transparent 0 3px, rgb(255 255 255 / 35%) 3px 3.5px, transparent 3.5px 9px),
-    repeating-linear-gradient(97deg, transparent 0 7px, rgb(0 0 0 / 25%) 7px 7.5px, transparent 7.5px 13px);
+  background-image: var(--paper-texture, none);
+  background-size: var(--paper-texture-size);
+  background-position: var(--paper-texture-offset, 0 0);
+  background-repeat: no-repeat;
+  mix-blend-mode: multiply;
+  opacity: var(--paper-texture-opacity, 0);
 }
 
 .paper-text {

@@ -1,4 +1,5 @@
 import { makeNoteId } from "./note-store.js";
+import { nextTexture } from "./texture.js";
 import { pickTypeface, referenceSize, typefacePool } from "./typeface.js";
 
 export const CAPTURE_LIMITS = { selectionGraphemes: 4000, pieceGraphemes: 60, textWidth: 348 };
@@ -141,10 +142,13 @@ export function createNotesFromCapture(candidate, measure, idFactory = makeNoteI
   const pieces = splitSelection(candidate.text, widest);
   return pieces.map((text) => {
     const typeface = pickTypeface(typography.category, random);
+    // Paper is dealt, not drawn: see nextTexture(). It rides on the note so reloads, exports and
+    // cuts all print the piece on the sheet it was captured on.
+    const texture = nextTexture(random);
     const textWidth = measure(text, typeface);
     const width = Math.min(382, Math.max(78, textWidth + 34));
     const reference = referenceSize(typeface);
     return { id: idFactory(), text, location: "tray", x: 36, y: 68, width, textWidth, height: 43,
-      fontSize: Math.min(reference, reference * (width - 34) / Math.max(1, textWidth)), typefaceSize: reference, angle: 0, z: 1, typeface, source, typography };
+      fontSize: Math.min(reference, reference * (width - 34) / Math.max(1, textWidth)), typefaceSize: reference, angle: 0, z: 1, typeface, texture, source, typography };
   });
 }
