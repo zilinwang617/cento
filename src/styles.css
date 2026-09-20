@@ -426,8 +426,8 @@ button:disabled {
 }
 
 .scissors-button .object-hint {
-  left: -220px;
-  bottom: 117px;
+  left: -120px;
+  bottom: 125px;
   transform: rotate(-3deg);
 }
 

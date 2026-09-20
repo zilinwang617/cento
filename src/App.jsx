@@ -3,7 +3,7 @@ import { WORLD, ARTBOARD, THEMES, INITIAL_NOTES, TRASH, clamp, constrainNote, pl
 import { CUT_HIT, wordRuns, paperLocalPoint, nearestCut, splitPaper } from "./cutting.js";
 import { exportPoem } from "./export.js";
 import { TRAY, displayFontSize, packTray, insertAt, trayInsertionIndex, isInsideTray, trayScrollSpeed } from "./tray.js";
-import { TEXTURE, texture, texturePlacementCss } from "./texture.js";
+import { TEXTURE, calibrate, texture, texturePlacementCss } from "./texture.js";
 import { createTextMeasure, fontStack, fontWeight, loadNoteFonts, referenceSize } from "./typeface.js";
 import { MAX_NOTES, applyPendingActions, beforeNoteIdAt, createNoteStore, makeNoteId, noteReducer, orderedNotes } from "./note-store.js";
 import { MESSAGE, PROTOCOL_SOURCE, isBridgeMessage } from "./protocol.js";
@@ -508,9 +508,16 @@ export function App() {
     }
   };
 
+  // Measuring the papers needs them decoded, so the first paint lifts strips by each paper's
+  // median and this repaints them on their own patch a frame later — a move of a level or two,
+  // under a texture that is already there.
+  const [calibrated, setCalibrated] = useState(false);
+  useEffect(() => { calibrate().then(() => setCalibrated(true)).catch(() => {}); }, []);
+
   return (
     <main className={`workspace-viewport${cutting ? " is-cutting" : ""}`} ref={viewportRef} aria-label="Cut-ups poetry workspace">
       <div className={`workspace${drag ? " is-dragging" : ""}`} ref={sceneRef} tabIndex={-1}
+        data-paper-calibrated={calibrated || undefined}
         style={{ transform: `translate(-50%, -50%) scale(${scale})`, "--page-color": theme.page, "--back-color": theme.back,
           "--page-x": `${ARTBOARD.x}px`, "--page-y": `${ARTBOARD.y}px`, "--page-width": `${ARTBOARD.width}px`, "--page-height": `${ARTBOARD.height}px`,
           // The sheet is the same size under every strip, so it is declared once here.

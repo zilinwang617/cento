@@ -1,3 +1,5 @@
+import { liftedPaper } from "./texture.js";
+
 export const WORLD = { width: 1440, height: 1024 };
 // The sheet is US Letter, in inches, so the export can be a whole 8.5 × 11 rather than an arbitrary
 // multiple of the artboard.
@@ -101,8 +103,10 @@ export function isOnPage(note) {
 
 export function noteColors(note, theme) {
   if (note.kind === "fortune") return { paper: "#ffffff", ink: "#364891" };
-  // Paper keeps the active palette in the tray, while dragging, and on the page.
-  return { paper: theme.strip, ink: theme.ink };
+  // Paper keeps the active palette in the tray, while dragging, and on the page. It is handed over
+  // lifted for the patch of paper this particular strip is printed on, so that multiplying that
+  // patch over it averages back out to the palette colour rather than a shade under — texture.js.
+  return { paper: liftedPaper(theme.strip, note), ink: theme.ink };
 }
 
 export function cutText(text, mode = "words") {

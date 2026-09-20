@@ -1,6 +1,6 @@
 import { ARTBOARD, LETTER, noteColors } from "./workspace.js";
 import { displayFontSize } from "./tray.js";
-import { TEXTURE, coverRect, loadTextures, texture, texturePlacement } from "./texture.js";
+import { TEXTURE, calibrate, coverRect, loadTextures, texture, texturePlacement } from "./texture.js";
 import { createTextMeasure, fontShorthand, loadNoteFonts } from "./typeface.js";
 import { FORTUNE } from "./fortune.js";
 
@@ -15,6 +15,8 @@ export async function renderPoem(notes, theme) {
   const printed = notes.filter((note) => note.location !== "tray");
   // One decode per paper for the whole page, not one per strip: a page can hold eighty.
   const papers = await loadTextures(printed.filter((note) => note.kind !== "fortune").map((note) => note.texture));
+  // A PNG gets no second pass, so the strips' per-patch lift has to be measured before this one.
+  await calibrate([...papers.keys()]);
   let fortuneEnds;
   if (notes.some((note) => note.kind === "fortune" && note.location !== "tray")) {
     fortuneEnds = new Image();

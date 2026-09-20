@@ -6,8 +6,10 @@
 // the paper's shading, while Figma's 66% normal would have washed it toward grey.
 //
 // That works because scripts/prepare-strip-textures.py pulls each asset's MEDIAN luminance up to
-// white. Multiply by 1.0 is a no-op, so a median-white paper leaves `--strip-color` exactly where
-// the palette put it and contributes only the shading below the median.
+// white. Multiply by 1.0 is a no-op, so a median-white paper contributes only the shading below
+// that median and nothing above it. It does not, on its own, leave `--strip-color` where the
+// palette put it: a 43px strip sees one window of the sheet, and a window's MEAN sits below the
+// sheet's median. `lift` below is what puts that back.
 //
 // `opacity` is measured, not tuned. Figma's own two rendered strips carry a tonal spread of 23 and
 // 8 on #cecece; these are the strengths that put the MEDIAN strip-sized window of each asset on
@@ -18,9 +20,24 @@
 // at 0.95 its deepest 1% of crease is 4.60:1, just over AA, while cobalt-and-white actually gains
 // contrast (7.47 -> 9.55:1). Raising creased any further trades away Midnight's legibility.
 // Replacing an asset means re-deriving both numbers — see the script.
+//
+// `lift` is the base the paper is multiplied onto, as a factor on the palette's `strip`. Multiply
+// only darkens, so a paper laid straight over the palette colour lands every strip BELOW it:
+// creased ran #2F5490 down to #2F5488 against Figma's #2F5493. Figma hits the same wall and answers
+// it the same way, running its two strips over #cecece and #eaeaea — two bases picked so both
+// render as one value. This is that base, derived rather than chosen: 1 / the multiply factor of
+// the MEDIAN strip-sized window of this paper at this opacity, so the median strip comes back out
+// on the palette colour.
+//
+// VALUE ONLY, one factor for all three channels. Per-channel was tried and is wrong: fibre's window
+// is warm (251.8/252.5/247.3), so it takes a little more out of cobalt's blue than its red, and
+// undoing that channel by channel re-saturates the blue into something harder and more electric
+// than Figma's. That slight warming is the paper — ink on stock is never the swatch. Correct how
+// light the strip is; leave what colour it is alone.
+// `prepare-strip-textures.py --measure` prints it; re-derive on any change to an asset or opacity.
 export const TEXTURES = [
-  { id: "creased", asset: "/assets/strip-creased.jpg", opacity: 0.95 },
-  { id: "fibre", asset: "/assets/strip-fibre.jpg", opacity: 1 },
+  { id: "creased", asset: "/assets/strip-creased.jpg", opacity: 0.95, lift: 1.023 },
+  { id: "fibre", asset: "/assets/strip-fibre.jpg", opacity: 1, lift: 1.013 },
 ];
 
 export const DEFAULT_TEXTURE = "creased";
@@ -46,6 +63,94 @@ export function texture(id) {
 
 export function isTextureId(id) {
   return byId.has(id);
+}
+
+// Calibration. `lift` puts the MEDIAN strip on the palette colour, which still leaves the one that
+// landed on a deep crease a few levels under the one that landed on a flat stretch — the paper's
+// own variation, honest in one strip but reading as two different blues once a tray holds thirty.
+//
+// So each strip is lifted by its OWN patch instead of the paper's median: measure the mean of the
+// rectangle this strip will actually show, and raise the base by exactly that. Every strip then
+// averages the palette colour whatever it is standing on, and what is left inside it is the crease
+// crossing it — texture as shading, never as a colour difference between strips.
+//
+// A summed-area table makes each of those means an O(1) read, so eighty strips cost one decode and
+// eighty subtractions. It is built from the sheet at TEXTURE size, the same pixels CSS samples.
+// Uint32 is exact here and half the memory of a float: the largest possible sum, a white 560x314
+// sheet, is 44.8M.
+const calibration = new Map();
+
+function summedArea(image) {
+  const { width, height } = TEXTURE;
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  context.drawImage(image, 0, 0, width, height);
+  const { data } = context.getImageData(0, 0, width, height);
+  const stride = width + 1;
+  const sums = [0, 1, 2].map(() => new Uint32Array(stride * (height + 1)));
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const pixel = (y * width + x) * 4;
+      for (let channel = 0; channel < sums.length; channel++) {
+        const sum = sums[channel];
+        sum[(y + 1) * stride + x + 1] = data[pixel + channel]
+          + sum[y * stride + x + 1] + sum[(y + 1) * stride + x] - sum[y * stride + x];
+      }
+    }
+  }
+  return sums;
+}
+
+// Decode and measure the papers. Async, so the first paint uses `lift` and this refines it; the
+// export awaits it, because a PNG gets no second pass.
+export async function calibrate(ids = TEXTURES.map((paper) => paper.id)) {
+  const wanted = [...new Set(ids)].filter((id) => isTextureId(id) && !calibration.has(id));
+  await Promise.all(wanted.map(async (id) => {
+    const image = new Image();
+    image.src = texture(id).asset;
+    await image.decode();
+    calibration.set(id, summedArea(image));
+  }));
+}
+
+// How much darker this strip's own patch is, as one factor for all three channels, or null before
+// calibrate() has run. Luminance-weighted for the same reason `lift` is a scalar: the correction is
+// for how light the strip comes out, not for what colour it is.
+const LUMA = [0.299, 0.587, 0.114];
+
+function patchFactor(id, seed, width, height) {
+  const sums = calibration.get(id);
+  if (!sums) return null;
+  const placement = texturePlacement(seed, width, height);
+  const stride = TEXTURE.width + 1;
+  const left = -placement.x;
+  const top = -placement.y;
+  const right = Math.min(left + Math.round(width), TEXTURE.width);
+  const bottom = Math.min(top + Math.round(height), TEXTURE.height);
+  const area = (right - left) * (bottom - top);
+  if (area <= 0) return null;
+  const luma = sums.reduce((total, sum, channel) => total + LUMA[channel] * (
+    sum[bottom * stride + right] - sum[top * stride + right]
+    - sum[bottom * stride + left] + sum[top * stride + left]) / area, 0);
+  const { opacity } = texture(id);
+  return 1 / (1 - opacity + opacity * luma / 255);
+}
+
+// The palette colour raised for the paper this strip is printed on, for both the DOM's
+// --strip-color and the export's fillStyle. Clamped: a near-white palette cannot be lifted the
+// whole way and comes out a shade under rather than on it — the lightest of the six, #f5f1df, has
+// room for all but the deepest creases.
+export function liftedPaper(color, note) {
+  const match = /^#([0-9a-f]{6})$/i.exec(color);
+  if (!match) return color;
+  const lift = patchFactor(note.texture, note.id, note.width, note.height)
+    ?? texture(note.texture).lift;
+  const value = Number.parseInt(match[1], 16);
+  const channels = [value >> 16, (value >> 8) & 0xff, value & 0xff]
+    .map((channel) => Math.min(255, Math.round(channel * lift)));
+  return `#${channels.map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
 }
 
 // Dealt from a deck, the way tilt is, rather than flipped per strip. Two cards would make a

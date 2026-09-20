@@ -54,7 +54,43 @@ def prepare(src, out, band=None, boost=1.0):
     Image.fromarray(a.astype(np.uint8)).save(out, quality=88, optimize=True)
     print(f"{out}  {im.size[0]}x{im.size[1]}  gain {gain:.3f}  boost {boost}")
 
+SHEET_W, WIN_W, WIN_H = 560, 180, 43  # TEXTURE in src/texture.js, and a typical strip
+
+
+def measure(src, opacity):
+    """Print `lift` for TEXTURES[] in src/texture.js.
+
+    A strip is a WIN_W x WIN_H hole onto a sheet laid at SHEET_W, and it reads
+    the MEAN of what shows through — one flat colour to the eye, not the sheet's
+    median pixel. That mean sits below the median the normalization put at white,
+    so every strip lands under the palette colour by this much. `lift` is the
+    reciprocal: the base to multiply this paper onto so the median strip comes
+    back out on the palette colour exactly.
+
+    One number, not three. The per-channel window is printed alongside because
+    the papers are not neutral — fibre's is warm at 251.8/252.5/247.3 — but
+    correcting that channel by channel re-saturates the ink into something
+    harder than the swatch. The paper is allowed to tint what is under it; it is
+    only not allowed to darken it. So `lift` is luminance-weighted.
+    """
+    im = Image.open(src).convert("RGB")
+    im = im.resize((SHEET_W, round(im.height * SHEET_W / im.width)), Image.LANCZOS)
+    a = np.asarray(im).astype(np.float32)
+    windows = np.array([a[y:y + WIN_H, x:x + WIN_W].mean(axis=(0, 1))
+                        for y in range(0, a.shape[0] - WIN_H, 3)
+                        for x in range(0, a.shape[1] - WIN_W, 5)])
+    median = np.median(windows, axis=0)
+    factor = 1 - opacity + opacity * float(median @ LUMA) / 255
+    print(f"{src}  opacity {opacity}"
+          f"  median window {np.round(median, 1)}"
+          f"  lift {1 / factor:.3f}")
+
+
 if __name__ == "__main__":
-    scratch = sys.argv[1]
-    prepare(f"{scratch}/noteA_1.png", "public/assets/strip-creased.jpg")
-    prepare(f"{scratch}/noteB_1.jpg", "public/assets/strip-fibre.jpg", band=1722)
+    if sys.argv[1] == "--measure":
+        measure("public/assets/strip-creased.jpg", 0.95)
+        measure("public/assets/strip-fibre.jpg", 1.0)
+    else:
+        scratch = sys.argv[1]
+        prepare(f"{scratch}/noteA_1.png", "public/assets/strip-creased.jpg")
+        prepare(f"{scratch}/noteB_1.jpg", "public/assets/strip-fibre.jpg", band=1722)
