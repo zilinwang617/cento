@@ -1,4 +1,5 @@
 import { clamp } from "./workspace.js";
+import { referenceSize } from "./typeface.js";
 
 export const TRAY = { width: 488, top: 52, bottom: 972, padding: 36, gapX: 18, gapY: 22, startY: 16, edge: 70, speed: 650 };
 export const TRAY_CONTENT_WIDTH = TRAY.width - TRAY.padding * 2;
@@ -31,9 +32,25 @@ export function packTray(notes, options = {}) {
   return { items, rows, height: notes.length ? y + rowHeight : 0, config };
 }
 
+export const STRIP_PADDING = 34;
+
+// Shrink a strip's type only far enough that its text still fits the strip.
 export function displayFontSize(note, measuredTextWidth = note.textWidth) {
-  const available = Math.max(1, note.width - 34);
-  return Math.min(note.fontSize || 18, 18 * available / Math.max(1, measuredTextWidth || available));
+  const reference = referenceSize(note.typeface);
+  const size = Math.min(note.fontSize || reference, reference);
+  const intrinsic = Number.isFinite(note.intrinsicWidth) ? note.intrinsicWidth : note.width;
+  // Scissors are not a resize. A cut half keeps the type its parent was printed in, and its text
+  // already fits — the cut lands in a word gap. Only a strip the tray packs narrower than it was
+  // built gives any of that back, and then it is the packing that asks, not the cut. The one cap
+  // left is the strip's own edge: geometry measured under a face the library no longer carries can
+  // outgrow it, and spilling ink past the paper is worse than a hair of shrink.
+  if (note.textOffset != null && note.width >= intrinsic) {
+    return Math.min(size, reference * note.width / Math.max(1, measuredTextWidth || note.width));
+  }
+  const budget = Number.isFinite(note.textWidth) ? note.textWidth : Math.max(1, intrinsic - STRIP_PADDING);
+  const padding = Math.min(STRIP_PADDING, Math.max(0, intrinsic - budget));
+  const available = Math.max(1, note.width - padding);
+  return Math.min(size, reference * available / Math.max(1, measuredTextWidth || available));
 }
 
 export function insertAt(items, item, index) {

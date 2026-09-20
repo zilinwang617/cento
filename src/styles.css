@@ -147,22 +147,23 @@ button:disabled {
   cursor: grabbing !important;
 }
 
+/* Both sheets are the Letter page from ARTBOARD; the back one only sits offset and turned. */
 .back-sheet {
   position: absolute;
-  left: 567px;
-  top: 47px;
-  width: 686px;
-  height: 888px;
+  left: calc(var(--page-x) + 17px);
+  top: calc(var(--page-y) - 21px);
+  width: var(--page-width);
+  height: var(--page-height);
   transform: rotate(1.44deg);
   background: var(--back-color);
 }
 
 .poem-sheet {
   position: absolute;
-  left: 550px;
-  top: 68px;
-  width: 686px;
-  height: 888px;
+  left: var(--page-x);
+  top: var(--page-y);
+  width: var(--page-width);
+  height: var(--page-height);
   background: var(--page-color);
 }
 
@@ -214,8 +215,9 @@ button:disabled {
   top: 50%;
   transform: translate(-50%, -50%);
   z-index: 1;
+  font-family: var(--type-face, "Special Elite", Georgia, serif);
   font-size: var(--type-size);
-  font-weight: 400;
+  font-weight: var(--type-weight, 400);
   line-height: 1;
   white-space: pre;
 }

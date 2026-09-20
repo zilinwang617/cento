@@ -1,3 +1,5 @@
+import { isTypefaceId, referenceSize, seededTypeface } from "./typeface.js";
+
 export const DOCUMENT_SCHEMA_VERSION = 1;
 export const MAX_NOTES = 80;
 
@@ -54,25 +56,31 @@ export function applyPendingActions(document, actions = []) {
 }
 
 function normalizeNote(note, fallbackOrder) {
+  const id = note.id || makeNoteId();
+  const typography = { ...EMPTY_TYPOGRAPHY, ...(note.typography ?? {}) };
+  // Cut halves inherit the parent's face; demo and pre-typeface notes get a stable seeded draw.
+  const typeface = isTypefaceId(note.typeface) ? note.typeface : seededTypeface(typography.category, id);
+  const reference = referenceSize(typeface);
   const textWidth = Number.isFinite(note.textWidth)
     ? note.textWidth
-    : Math.max(1, (Number(note.width) - 34) * 18 / Math.max(1, Number(note.fontSize) || 18));
+    : Math.max(1, (Number(note.width) - 34) * reference / Math.max(1, Number(note.fontSize) || reference));
   return {
     ...note,
-    id: note.id || makeNoteId(),
+    id,
     text: String(note.text ?? ""),
     location: note.location === "desk" ? "desk" : "tray",
     addedOrder: Number.isFinite(note.addedOrder) ? note.addedOrder : fallbackOrder,
     textWidth,
     width: Number.isFinite(note.width) ? note.width : Math.min(382, Math.max(78, textWidth + 34)),
     height: Number.isFinite(note.height) ? note.height : 43,
-    fontSize: Number.isFinite(note.fontSize) ? note.fontSize : 18,
+    fontSize: Number.isFinite(note.fontSize) ? note.fontSize : reference,
     x: Number.isFinite(note.x) ? note.x : 36,
     y: Number.isFinite(note.y) ? note.y : 68,
     angle: Number.isFinite(note.angle) ? note.angle : 0,
     z: Number.isFinite(note.z) ? note.z : 1,
+    typeface,
     source: note.source ?? null,
-    typography: { ...EMPTY_TYPOGRAPHY, ...(note.typography ?? {}) },
+    typography,
   };
 }
 

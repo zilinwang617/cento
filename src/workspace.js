@@ -1,5 +1,11 @@
 export const WORLD = { width: 1440, height: 1024 };
-export const ARTBOARD = { x: 550, y: 68, width: 686, height: 888 };
+// The sheet is US Letter, in inches, so the export can be a whole 8.5 × 11 rather than an arbitrary
+// multiple of the artboard.
+export const LETTER = { width: 8.5, height: 11 };
+// Height is the fixed side: 888 leaves an even 68px above and below inside the 1024-tall world, and
+// the width follows from the proportion. Figma's 686 was 0.026% off Letter; deriving it keeps the
+// page honest, and every consumer — the CSS sheets, isOnPage, the export — reads it from here.
+export const ARTBOARD = { x: 550, y: 68, width: 888 * LETTER.width / LETTER.height, height: 888 };
 export const THEMES = [
   { id: "original", name: "Original", page: "#f5f1df", back: "#668a8e", strip: "#1a3b9e", ink: "#ffffff" },
   { id: "tidal", name: "Tidal", page: "#668a8e", back: "#f5f1df", strip: "#f5f1df", ink: "#48413d" },
@@ -23,6 +29,40 @@ export const INITIAL_NOTES = [
   ...placeCuts(EXAMPLE_TEXT, EXAMPLE_TEXT.map((text) => text.length * 9.5)).map((note, index) => ({ ...note, id: `note-${index + 4}`, z: index + 13 })),
 ];
 export const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value));
+
+// Tilt comes from a fixed library rather than a fresh roll: ten angles a side, following the
+// quantiles of a normal curve so the shallow ones far outnumber the rakish ones. Four of the ten
+// sit under 2°, six under 3°, and the 8° is the single strip per deck that really got thrown — the
+// one that gives a page its energy. Spaced to land σ on 3.6, which puts 2σ at ±7 with 8 as the hard
+// ceiling. Written out, the whole range is legible and tunable here instead of implied by a
+// formula: move a number and you know exactly what you changed.
+export const TILT_LIBRARY = [0.3, 0.7, 1.1, 1.5, 1.9, 2.4, 3, 3.8, 5.2, 8]
+  .flatMap((degrees) => [-degrees, degrees]);
+
+function shuffled(values, random) {
+  const deck = [...values];
+  for (let index = deck.length - 1; index > 0; index--) {
+    const swap = Math.floor(random() * (index + 1));
+    [deck[index], deck[swap]] = [deck[swap], deck[index]];
+  }
+  return deck;
+}
+
+let deck = [];
+let lastTilt = null;
+
+// Dealt from a shuffled deck, not drawn independently. Twenty strips laid on the desk then use
+// every angle exactly once, instead of landing on the same one twice by chance and reading as a
+// grid — the spread a person sees is the spread that was designed. The deck reshuffles when spent,
+// and never repeats across the seam.
+export function nextTilt(random = Math.random) {
+  if (!deck.length) {
+    deck = shuffled(TILT_LIBRARY, random);
+    if (deck.at(-1) === lastTilt) [deck[0], deck[deck.length - 1]] = [deck[deck.length - 1], deck[0]];
+  }
+  lastTilt = deck.pop();
+  return lastTilt;
+}
 
 export function noteBounds(note) {
   const angle = note.angle * Math.PI / 180;

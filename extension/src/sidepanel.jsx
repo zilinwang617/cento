@@ -4,30 +4,28 @@ import { CaptureError, createNotesFromCapture, hashText } from "../../src/captur
 import { MAX_NOTES, beforeNoteIdAt, createNoteStore, makeNoteId, orderedNotes } from "../../src/note-store.js";
 import { MESSAGE } from "../../src/protocol.js";
 import { displayFontSize, insertAt, packTray, trayInsertionIndex } from "../../src/tray.js";
+import { createTextMeasure, fontStack, fontWeight, libraryCategory, loadNoteFonts, typeface } from "../../src/typeface.js";
 import "./sidepanel.css";
 
 const UNKNOWN_META = { source: { url: "", title: "", capturedAt: "" }, typography: { sourceFontStack: "", category: "unknown", confidence: 0 } };
 const layoutSettings = (width) => ({ width, top: 0, bottom: 0, padding: 20, gapX: 14, gapY: 18, startY: 18, edge: 58, speed: 520 });
 
-let measureCanvas;
-function measureSpecialElite(text) {
-  measureCanvas ??= document.createElement("canvas");
-  const context = measureCanvas.getContext("2d");
-  context.font = '18px "Special Elite", Georgia, serif';
-  return context.measureText(text).width;
-}
+let textMeasure;
+const measureText = (text, typefaceId) => (textMeasure ??= createTextMeasure())(text, typefaceId);
 
 function Paper({ note, measuredTextWidth, dragging, onPointerDown, onRemove, onNudge }) {
   const source = note.source?.title || note.source?.url || "Collected text";
-  const font = note.typography?.category && note.typography.category !== "unknown" ? ` · ${note.typography.category}` : "";
+  const assigned = `${libraryCategory(note.typography?.category)} → ${typeface(note.typeface).family}`;
   return <button type="button" className={`side-paper${dragging ? " is-dragging" : ""}`}
-    aria-label={`Move paper: ${note.text}`} title={`${source}${font}`} data-note-id={note.id}
+    aria-label={`Move paper: ${note.text}`} title={`${source} · ${assigned}`} data-note-id={note.id}
     onPointerDown={onPointerDown} onKeyDown={(event) => {
       if (event.key === "Delete" || event.key === "Backspace") { event.preventDefault(); onRemove(note.id); }
       if (["ArrowLeft", "ArrowUp"].includes(event.key)) { event.preventDefault(); onNudge(note.id, -1); }
       if (["ArrowRight", "ArrowDown"].includes(event.key)) { event.preventDefault(); onNudge(note.id, 1); }
     }}
-    style={{ left: note.x, top: note.y, width: note.width, height: note.height, "--type-size": `${displayFontSize(note, measuredTextWidth)}px` }}>
+    style={{ left: note.x, top: note.y, width: note.width, height: note.height,
+      "--type-size": `${displayFontSize(note, measuredTextWidth)}px`, "--type-face": fontStack(note.typeface),
+      "--type-weight": fontWeight(note.typeface) }}>
     <span>{note.text}</span>
   </button>;
 }
@@ -49,7 +47,7 @@ function SidePanel() {
   const [toast, setToast] = useState("");
   const settings = useMemo(() => layoutSettings(width), [width]);
   const trayNotes = useMemo(() => orderedNotes(documentState, "tray"), [documentState]);
-  const measuredTextWidths = useMemo(() => new Map(trayNotes.map((note) => [note.id, measureSpecialElite(note.text)])), [trayNotes, fontReady]);
+  const measuredTextWidths = useMemo(() => new Map(trayNotes.map((note) => [note.id, measureText(note.text, note.typeface)])), [trayNotes, fontReady]);
   const layout = useMemo(() => {
     const notes = drag ? insertAt(trayNotes.filter((note) => note.id !== drag.note.id), drag.note, drag.index) : trayNotes;
     return packTray(notes, settings);
@@ -75,8 +73,8 @@ function SidePanel() {
   const collect = async (candidate, pendingId = null) => {
     let readyToSend = false;
     try {
-      await document.fonts.load('18px "Special Elite"');
-      const notes = createNotesFromCapture(candidate, measureSpecialElite);
+      await loadNoteFonts();
+      const notes = createNotesFromCapture(candidate, measureText);
       if (documentRef.current.notes.length + notes.length > MAX_NOTES) throw new CaptureError("desk-full", "The desk can hold up to 80 pieces.");
       readyToSend = true;
       await command({ type: "add", notes });
@@ -143,7 +141,7 @@ function SidePanel() {
 
   useEffect(() => {
     let active = true;
-    document.fonts.load('18px "Special Elite"').then(() => { if (active) setFontReady(true); });
+    loadNoteFonts().then(() => { if (active) setFontReady(true); }).catch(() => {});
     return () => { active = false; };
   }, []);
 
@@ -246,7 +244,7 @@ function SidePanel() {
           ? <div className="side-placeholder" key={note.id} style={{ left: note.x, top: note.y, width: note.width, height: note.height }} />
           : <Paper key={note.id} note={note} measuredTextWidth={measuredTextWidths.get(note.id)} onPointerDown={(event) => startDrag(note, event)}
             onRemove={(id) => submit({ type: "remove", id })} onNudge={nudge} />)}
-        {drag && <Paper note={{ ...drag.note, ...drag.position }} measuredTextWidth={measureSpecialElite(drag.note.text)} dragging onPointerDown={() => {}} onRemove={() => {}} onNudge={() => {}} />}
+        {drag && <Paper note={{ ...drag.note, ...drag.position }} measuredTextWidth={measureText(drag.note.text, drag.note.typeface)} dragging onPointerDown={() => {}} onRemove={() => {}} onNudge={() => {}} />}
       </div>
     </section>
     <div className="drop-overlay" aria-hidden={!externalDrag}><span>Drop to collect</span></div>

@@ -1,4 +1,5 @@
 import { makeNoteId } from "./note-store.js";
+import { pickTypeface, referenceSize, typefacePool } from "./typeface.js";
 
 export const CAPTURE_LIMITS = { selectionGraphemes: 4000, pieceGraphemes: 60, textWidth: 348 };
 
@@ -119,16 +120,22 @@ export function splitSelection(text, measure, limits = CAPTURE_LIMITS) {
   return pieces.filter(Boolean);
 }
 
-export function createNotesFromCapture(candidate, measure, idFactory = makeNoteId) {
-  const pieces = splitSelection(candidate.text, measure);
+export function createNotesFromCapture(candidate, measure, idFactory = makeNoteId, random = Math.random) {
   const source = { url: sanitizeUrl(candidate.source?.url), title: String(candidate.source?.title ?? "").slice(0, 300),
     capturedAt: candidate.source?.capturedAt ?? new Date().toISOString() };
   const typography = { sourceFontStack: String(candidate.typography?.sourceFontStack ?? "").slice(0, 500),
     category: candidate.typography?.category ?? "unknown", confidence: Number(candidate.typography?.confidence) || 0 };
+  // Each piece draws its own face, so split against the widest one in the pool: whichever face a
+  // piece lands on, it still fits the strip it was cut to.
+  const pool = typefacePool(typography.category);
+  const widest = (text) => pool.reduce((maximum, face) => Math.max(maximum, measure(text, face.id)), 0);
+  const pieces = splitSelection(candidate.text, widest);
   return pieces.map((text) => {
-    const textWidth = measure(text);
+    const typeface = pickTypeface(typography.category, random);
+    const textWidth = measure(text, typeface);
     const width = Math.min(382, Math.max(78, textWidth + 34));
+    const reference = referenceSize(typeface);
     return { id: idFactory(), text, location: "tray", x: 36, y: 68, width, textWidth, height: 43,
-      fontSize: Math.min(18, 18 * (width - 34) / Math.max(1, textWidth)), angle: 0, z: 1, source, typography };
+      fontSize: Math.min(reference, reference * (width - 34) / Math.max(1, textWidth)), angle: 0, z: 1, typeface, source, typography };
   });
 }

@@ -1,12 +1,16 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
-import { WORLD, THEMES, INITIAL_NOTES, TRASH, clamp, constrainNote, placeCuts, noteColors, isOnPage, isOverTrash } from "./workspace.js";
+import { WORLD, ARTBOARD, THEMES, INITIAL_NOTES, TRASH, clamp, constrainNote, placeCuts, noteColors, isOnPage, isOverTrash, nextTilt } from "./workspace.js";
 import { CUT_HIT, wordRuns, paperLocalPoint, nearestCut, splitPaper } from "./cutting.js";
 import { exportPoem } from "./export.js";
-import { TRAY, packTray, insertAt, trayInsertionIndex, isInsideTray, trayScrollSpeed } from "./tray.js";
+import { TRAY, displayFontSize, packTray, insertAt, trayInsertionIndex, isInsideTray, trayScrollSpeed } from "./tray.js";
+import { createTextMeasure, fontStack, fontWeight, loadNoteFonts, referenceSize } from "./typeface.js";
 import { MAX_NOTES, applyPendingActions, beforeNoteIdAt, createNoteStore, makeNoteId, noteReducer, orderedNotes } from "./note-store.js";
 import { MESSAGE, PROTOCOL_SOURCE, isBridgeMessage } from "./protocol.js";
 
-function PaperStrip({ note, theme, sceneRef, cutting, onCut, onPickUp, onKeyMove, onRemove, inTray = false, drag, landingFrom }) {
+let textMeasure;
+const measureText = (text, typefaceId) => (textMeasure ??= createTextMeasure())(text, typefaceId);
+
+function PaperStrip({ note, theme, sceneRef, cutting, onCut, onPickUp, onKeyMove, onRemove, inTray = false, drag, landingFrom, measuredTextWidth }) {
   const elementRef = useRef(null);
   const textRef = useRef(null);
   const cutGuideRef = useRef(null);
@@ -14,6 +18,8 @@ function PaperStrip({ note, theme, sceneRef, cutting, onCut, onPickUp, onKeyMove
   const cutGapsRef = useRef([]);
   const colors = noteColors(note, theme);
   const words = useMemo(() => wordRuns(note.text), [note.text]);
+  // The stored fontSize was measured in this note's own face; shrink further only if it overflows.
+  const typeSize = displayFontSize(note, measuredTextWidth);
 
   useLayoutEffect(() => {
     if (!landingFrom || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -49,7 +55,7 @@ function PaperStrip({ note, theme, sceneRef, cutting, onCut, onPickUp, onKeyMove
       cutGapsRef.current = words.slice(0, -1).map((word, index) => {
         const left = textLeft + elements[index].offsetLeft + elements[index].offsetWidth;
         const right = textLeft + elements[index + 1].offsetLeft;
-        const naturalScale = 18 / Math.max(1, note.fontSize || 18);
+        const naturalScale = referenceSize(note.typeface) / Math.max(1, typeSize);
         return {
           left, right, x: (left + right) / 2, textLeft,
           leftEnd: word.end, rightStart: words[index + 1].start,
@@ -64,7 +70,7 @@ function PaperStrip({ note, theme, sceneRef, cutting, onCut, onPickUp, onKeyMove
     const observer = new ResizeObserver(measureGaps);
     observer.observe(textRef.current);
     return () => observer.disconnect();
-  }, [cutting, words, note.width, note.textOffset, note.fontSize]);
+  }, [cutting, words, note.width, note.textOffset, typeSize]);
 
   const cutAtPointer = (event) => {
     if (!cutting || words.length < 2) return null;
@@ -104,7 +110,8 @@ function PaperStrip({ note, theme, sceneRef, cutting, onCut, onPickUp, onKeyMove
         left: note.x, top: note.y, width: note.width, height: note.height,
         transform: `rotate(${note.angle}deg)`, zIndex: drag ? 500 : note.z,
         "--strip-color": colors.paper, "--ink-color": colors.ink,
-        "--grip": drag?.grip ?? "50% 50%", "--tilt": `${drag?.tilt ?? 0}deg`, "--type-size": `${note.fontSize || 18}px`,
+        "--grip": drag?.grip ?? "50% 50%", "--tilt": `${drag?.tilt ?? 0}deg`,
+        "--type-size": `${typeSize}px`, "--type-face": fontStack(note.typeface), "--type-weight": fontWeight(note.typeface),
       }}
       onPointerDown={pickUp} onKeyDown={discardOnDelete} onPointerMove={cutting ? previewCut : undefined}
       onPointerEnter={cutting ? previewCut : undefined} onPointerLeave={() => showCutTarget(null)} onBlur={() => showCutTarget(null)}
@@ -152,8 +159,11 @@ export function App() {
   const [styleOpen, setStyleOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [toast, setToast] = useState("");
+  const [fontsReady, setFontsReady] = useState(false);
   const theme = THEMES.find((item) => item.id === themeId);
   const trayNotes = useMemo(() => orderedNotes(store, "tray"), [store]);
+  // Remeasuring once the faces land keeps demo widths and any CDN swap-in from overflowing a strip.
+  const measuredTextWidths = useMemo(() => new Map(notes.map((note) => [note.id, measureText(note.text, note.typeface)])), [notes, fontsReady]);
   const layout = useMemo(() => {
     if (!drag) return packTray(trayNotes);
     const others = trayNotes.filter((note) => note.id !== drag.note.id);
@@ -170,6 +180,12 @@ export function App() {
     const observer = new ResizeObserver(resize);
     observer.observe(viewportRef.current);
     return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    loadNoteFonts().then(() => { if (active) setFontsReady(true); }).catch(() => {});
+    return () => { active = false; };
   }, []);
 
   useEffect(() => () => { clearTimeout(toastTimer.current); detachDrag(); }, []);
@@ -348,9 +364,14 @@ export function App() {
     const discarding = !cancel && current.overTrash;
     if (discarding) discardNote(current.note.id);
     else if (!cancel) {
+      // Coming off the tray is the throw: that is where a strip picks up its tilt. Nudging one
+      // already on the desk keeps the angle it landed at, and the tray packs everything straight.
+      const angle = current.inTray ? 0 : current.note.location === "tray" ? nextTilt() : current.note.angle;
+      // A tilted strip claims more room than the flat one the drag was constrained against.
+      const position = current.inTray ? current.position : constrainNote({ ...current.note, ...current.position, angle });
       commit({ type: "drop", id: current.note.id, location: current.inTray ? "tray" : "desk",
         beforeNoteId: current.inTray ? beforeNoteIdAt(viewRef.current.store, current.note.id, current.index) : null,
-        patch: { ...current.position, angle: current.inTray ? 0 : current.note.angle, z: ++topLayer.current } });
+        patch: { ...position, angle, z: ++topLayer.current } });
     }
     // Canvas drops already end at their final coordinates. Only tray packing (or cancellation)
     // needs a positional landing animation from the pointer to a different resting slot. A
@@ -434,7 +455,9 @@ export function App() {
   return (
     <main className={`workspace-viewport${cutting ? " is-cutting" : ""}`} ref={viewportRef} aria-label="Cut-ups poetry workspace">
       <div className={`workspace${drag ? " is-dragging" : ""}`} ref={sceneRef} tabIndex={-1}
-        style={{ transform: `translate(-50%, -50%) scale(${scale})`, "--page-color": theme.page, "--back-color": theme.back, "--cut-hit-padding": `${CUT_HIT.padding / scale}px` }}>
+        style={{ transform: `translate(-50%, -50%) scale(${scale})`, "--page-color": theme.page, "--back-color": theme.back,
+          "--page-x": `${ARTBOARD.x}px`, "--page-y": `${ARTBOARD.y}px`, "--page-width": `${ARTBOARD.width}px`, "--page-height": `${ARTBOARD.height}px`,
+          "--cut-hit-padding": `${CUT_HIT.padding / scale}px` }}>
         <div className="word-tray"/>
         <section className="tray-scroll" ref={trayRef} aria-label="Collected paper strips" tabIndex={0}
           data-sequence-revision={store.revision}
@@ -445,6 +468,7 @@ export function App() {
               ? <div key={note.id} className="tray-placeholder" aria-hidden="true" style={{ left: note.x, top: note.y, width: note.width, height: note.height }} />
               : <PaperStrip key={note.id} note={note} inTray theme={theme} sceneRef={sceneRef}
                 cutting={cutting} onCut={cutNote} onPickUp={pickUpNote} onRemove={removeNote}
+                measuredTextWidth={measuredTextWidths.get(note.id)}
                 landingFrom={landing?.id === note.id ? landing : null} />)}
           </div>
         </section>
@@ -452,8 +476,10 @@ export function App() {
         <section className="poem-sheet" aria-label="Poem page" />
         {notes.filter((note) => note.location !== "tray" && note.id !== drag?.note.id).map((note) => <PaperStrip key={note.id} note={note} theme={theme} sceneRef={sceneRef}
           cutting={cutting} onCut={cutNote} onPickUp={pickUpNote} onRemove={removeNote}
+          measuredTextWidth={measuredTextWidths.get(note.id)}
           landingFrom={landing?.id === note.id ? landing : null} />)}
-        {drag && <PaperStrip note={{ ...drag.note, ...drag.position, location: "desk", colorSource: undefined }} drag={drag} theme={theme} sceneRef={sceneRef} />}
+        {drag && <PaperStrip note={{ ...drag.note, ...drag.position, location: "desk", colorSource: undefined }} drag={drag} theme={theme} sceneRef={sceneRef}
+          measuredTextWidth={measuredTextWidths.get(drag.note.id)} />}
         <button className="object-button scissors-button" ref={scissorsRef} aria-label={cutting ? "Exit cutting mode" : "Enter cutting mode"}
           aria-pressed={cutting} onClick={() => { setStyleOpen(false); setCutting((current) => !current); }}>
           <img src="/assets/scissors.png" alt="" draggable="false" />

@@ -1,11 +1,19 @@
-import { ARTBOARD, noteColors } from "./workspace.js";
+import { ARTBOARD, LETTER, noteColors } from "./workspace.js";
+import { displayFontSize } from "./tray.js";
+import { createTextMeasure, fontShorthand, loadNoteFonts } from "./typeface.js";
+
+// The page is Letter, so the PNG is a whole 8.5 × 11 inches at print resolution — 2550 × 3300 —
+// instead of an arbitrary multiple of the artboard. Deriving the scale from one edge and applying
+// it to both is what keeps the export from ever drifting out of proportion with the page.
+export const EXPORT_DPI = 300;
 
 export async function renderPoem(notes, theme) {
-  await document.fonts.load('18px "Special Elite"');
+  await loadNoteFonts();
+  const measure = createTextMeasure();
   const canvas = document.createElement("canvas");
-  const resolution = 2;
-  canvas.width = ARTBOARD.width * resolution;
-  canvas.height = ARTBOARD.height * resolution;
+  const resolution = LETTER.width * EXPORT_DPI / ARTBOARD.width;
+  canvas.width = Math.round(ARTBOARD.width * resolution);
+  canvas.height = Math.round(ARTBOARD.height * resolution);
   const context = canvas.getContext("2d");
   if (!context) throw new Error("Image export is unavailable.");
   context.scale(resolution, resolution);
@@ -27,7 +35,7 @@ export async function renderPoem(notes, theme) {
     context.fillStyle = "rgba(255,255,255,0.09)";
     context.fillRect(-note.width / 2, -note.height / 2, note.width, 0.5);
     context.fillStyle = colors.ink;
-    context.font = `${note.fontSize || 18}px "Special Elite"`;
+    context.font = fontShorthand(note.typeface, displayFontSize(note, measure(note.text, note.typeface)));
     context.textAlign = note.textOffset == null ? "center" : "left";
     context.textBaseline = "middle";
     context.fillText(note.text, note.textOffset == null ? 0 : -note.width / 2 + note.textOffset, 1);
