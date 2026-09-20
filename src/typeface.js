@@ -9,7 +9,7 @@
 // bold stroke is what reads as ink on paper at strip size.
 export const TYPEFACES = [
   { id: "special-elite", family: "Special Elite", category: "display", figmaSize: 16, weight: 400, fallback: "Georgia, serif" },
-  { id: "charmonman", family: "Charmonman", category: "handwritten", figmaSize: 18, size: 18, weight: 700, fallback: "\"Segoe Script\", cursive" },
+  { id: "charmonman", family: "Charmonman", category: "handwritten", figmaSize: 18, size: 20, weight: 700, fallback: "\"Segoe Script\", cursive" },
   { id: "libre-baskerville", family: "Libre Baskerville", category: "serif", figmaSize: 15, weight: 400, fallback: "Georgia, serif" },
   { id: "poppins", family: "Poppins", category: "sans", figmaSize: 15, weight: 400, fallback: "Helvetica, Arial, sans-serif" },
   { id: "lexend-giga", family: "Lexend Giga", category: "sans", figmaSize: 15, weight: 400, fallback: "Verdana, Helvetica, sans-serif" },
