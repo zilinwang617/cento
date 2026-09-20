@@ -138,6 +138,27 @@ button:disabled {
   pointer-events: none;
 }
 
+.desk-notes,
+.drag-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Persisted note.z orders papers only within this context, however large it grows. */
+.desk-notes {
+  z-index: 3;
+}
+
+.desk-notes > .paper-strip {
+  pointer-events: auto;
+}
+
+/* Above the tray, resting papers, desk objects and palette panel. */
+.drag-layer {
+  z-index: 700;
+}
+
 .drag-overlay {
   pointer-events: none;
 }

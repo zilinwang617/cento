@@ -116,7 +116,7 @@ function PaperStrip({ note, theme, sceneRef, cutting, onCut, onPickUp, onKeyMove
       data-note-id={note.id} data-location={inTray ? "tray" : "desk"}
       style={{
         left: note.x, top: note.y, width: note.width, height: note.height,
-        transform: `rotate(${note.angle}deg)`, zIndex: drag ? 500 : note.z,
+        transform: `rotate(${note.angle}deg)`, zIndex: drag ? undefined : note.z,
         "--strip-color": colors.paper, "--ink-color": colors.ink,
         "--grip": drag?.grip ?? "50% 50%", "--tilt": `${drag?.tilt ?? 0}deg`,
         "--type-size": `${typeSize}px`, "--type-face": fontStack(note.typeface), "--type-weight": fontWeight(note.typeface),
@@ -539,13 +539,17 @@ export function App() {
         </section>
         <div className="back-sheet" aria-hidden="true" />
         <section className="poem-sheet" aria-label="Poem page"><PaperTexture theme={theme} /></section>
-        {notes.filter((note) => note.location !== "tray" && note.id !== drag?.note.id).map((note) => <PaperStrip key={note.id} note={note} theme={theme} sceneRef={sceneRef}
-          unfolding={note.id === unfoldingId}
-          cutting={cutting} onCut={cutNote} onPickUp={pickUpNote} onRemove={removeNote}
-          measuredTextWidth={measuredTextWidths.get(note.id)}
-          landingFrom={landing?.id === note.id ? landing : null} />)}
-        {drag && <PaperStrip note={{ ...drag.note, ...drag.position, location: "desk", colorSource: undefined }} drag={drag} theme={theme} sceneRef={sceneRef}
-          measuredTextWidth={measuredTextWidths.get(drag.note.id)} />}
+        <div className="desk-notes">
+          {notes.filter((note) => note.location !== "tray" && note.id !== drag?.note.id).map((note) => <PaperStrip key={note.id} note={note} theme={theme} sceneRef={sceneRef}
+            unfolding={note.id === unfoldingId}
+            cutting={cutting} onCut={cutNote} onPickUp={pickUpNote} onRemove={removeNote}
+            measuredTextWidth={measuredTextWidths.get(note.id)}
+            landingFrom={landing?.id === note.id ? landing : null} />)}
+        </div>
+        {drag && <div className="drag-layer" aria-hidden="true">
+          <PaperStrip note={{ ...drag.note, ...drag.position, location: "desk", colorSource: undefined }} drag={drag} theme={theme} sceneRef={sceneRef}
+            measuredTextWidth={measuredTextWidths.get(drag.note.id)} />
+        </div>}
         <button className="object-button fortune-button" aria-label="Open a fortune cookie" disabled={drawingFortune} onClick={drawFortune}>
           <span className="fortune-art"><img src="/assets/fortune-cookie.png" alt="" draggable="false" /></span>
           <span className="object-hint">A little inspiration</span>
