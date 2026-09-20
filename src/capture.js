@@ -108,6 +108,12 @@ function splitSentence(sentence, measure, limits) {
   return pieces;
 }
 
+// A piece with no letter, digit or pictograph is punctuation the split stranded: the last word
+// filled the strip and its full stop was flushed on alone. A strip holding just "." is nothing to
+// arrange, so it is dropped rather than merged back — these are fragments anyway, and a cut-up
+// never misses the period. Pictographs count as content so an emoji is never silently discarded.
+const hasContent = (text) => /[\p{L}\p{N}\p{Extended_Pictographic}]/u.test(text);
+
 export function splitSelection(text, measure, limits = CAPTURE_LIMITS) {
   const normalized = normalizeSelection(text);
   if (!normalized) throw new CaptureError("empty", "Select a little text first.");
@@ -117,7 +123,10 @@ export function splitSelection(text, measure, limits = CAPTURE_LIMITS) {
     const sentences = sentenceSegmenter ? [...sentenceSegmenter.segment(paragraph)].map((item) => item.segment) : paragraph.split(/(?<=[.!?。！？])\s*/u);
     for (const sentence of sentences) pieces.push(...splitSentence(sentence, measure, limits));
   }
-  return pieces.filter(Boolean);
+  const kept = pieces.filter(hasContent);
+  // A selection that was only punctuation leaves nothing to collect.
+  if (!kept.length) throw new CaptureError("empty", "Select a little text first.");
+  return kept;
 }
 
 export function createNotesFromCapture(candidate, measure, idFactory = makeNoteId, random = Math.random) {
@@ -136,6 +145,6 @@ export function createNotesFromCapture(candidate, measure, idFactory = makeNoteI
     const width = Math.min(382, Math.max(78, textWidth + 34));
     const reference = referenceSize(typeface);
     return { id: idFactory(), text, location: "tray", x: 36, y: 68, width, textWidth, height: 43,
-      fontSize: Math.min(reference, reference * (width - 34) / Math.max(1, textWidth)), angle: 0, z: 1, typeface, source, typography };
+      fontSize: Math.min(reference, reference * (width - 34) / Math.max(1, textWidth)), typefaceSize: reference, angle: 0, z: 1, typeface, source, typography };
   });
 }

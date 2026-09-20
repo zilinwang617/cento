@@ -19,6 +19,19 @@ export async function renderPoem(notes, theme) {
   context.scale(resolution, resolution);
   context.fillStyle = theme.page;
   context.fillRect(0, 0, ARTBOARD.width, ARTBOARD.height);
+  if (theme.texture) {
+    const texture = new Image();
+    texture.src = theme.texture;
+    await texture.decode();
+    // Match the page and swatch's centered object-fit: cover, including Figma's fill opacity.
+    const fit = Math.max(ARTBOARD.width / texture.naturalWidth, ARTBOARD.height / texture.naturalHeight);
+    const width = texture.naturalWidth * fit;
+    const height = texture.naturalHeight * fit;
+    context.save();
+    context.globalAlpha = theme.textureOpacity;
+    context.drawImage(texture, (ARTBOARD.width - width) / 2, (ARTBOARD.height - height) / 2, width, height);
+    context.restore();
+  }
   context.translate(-ARTBOARD.x, -ARTBOARD.y);
   // Clip to the page: tray, tools and off-page parts are never exported.
   for (const note of notes.filter((item) => item.location !== "tray").sort((a, b) => a.z - b.z)) {
@@ -38,7 +51,7 @@ export async function renderPoem(notes, theme) {
     context.font = fontShorthand(note.typeface, displayFontSize(note, measure(note.text, note.typeface)));
     context.textAlign = note.textOffset == null ? "center" : "left";
     context.textBaseline = "middle";
-    context.fillText(note.text, note.textOffset == null ? 0 : -note.width / 2 + note.textOffset, 1);
+    context.fillText(note.text, note.textOffset == null ? 0 : -note.width / 2 + note.textOffset, 2);
     context.restore();
   }
   return canvas;

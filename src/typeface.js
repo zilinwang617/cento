@@ -9,7 +9,7 @@
 // bold stroke is what reads as ink on paper at strip size.
 export const TYPEFACES = [
   { id: "special-elite", family: "Special Elite", category: "display", figmaSize: 16, weight: 400, fallback: "Georgia, serif" },
-  { id: "charmonman", family: "Charmonman", category: "handwritten", figmaSize: 16, weight: 700, fallback: "\"Segoe Script\", cursive" },
+  { id: "charmonman", family: "Charmonman", category: "handwritten", figmaSize: 18, size: 18, weight: 700, fallback: "\"Segoe Script\", cursive" },
   { id: "libre-baskerville", family: "Libre Baskerville", category: "serif", figmaSize: 15, weight: 400, fallback: "Georgia, serif" },
   { id: "poppins", family: "Poppins", category: "sans", figmaSize: 15, weight: 400, fallback: "Helvetica, Arial, sans-serif" },
   { id: "lexend-giga", family: "Lexend Giga", category: "sans", figmaSize: 15, weight: 400, fallback: "Verdana, Helvetica, sans-serif" },
@@ -72,7 +72,9 @@ export function fontStack(id) {
 
 // The size a strip is set in when nothing forces it smaller, scaled per face the way Figma does.
 export function referenceSize(id) {
-  return BASE_TYPE_SIZE * typeface(id).figmaSize / FIGMA_BASE_SIZE;
+  const face = typeface(id);
+  // Explicit sizes are actual workspace pixels, not Figma ratios to scale a second time.
+  return face.size ?? BASE_TYPE_SIZE * face.figmaSize / FIGMA_BASE_SIZE;
 }
 
 export function fontWeight(id) {

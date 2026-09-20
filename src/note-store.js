@@ -61,6 +61,21 @@ function normalizeNote(note, fallbackOrder) {
   // Cut halves inherit the parent's face; demo and pre-typeface notes get a stable seeded draw.
   const typeface = isTypefaceId(note.typeface) ? note.typeface : seededTypeface(typography.category, id);
   const reference = referenceSize(typeface);
+  if (typeface === "charmonman" && note.typefaceSize !== reference) {
+    // Update existing paper as well as newly captured text. Record the applied reference so
+    // hydration, moves and cuts cannot enlarge the same note repeatedly.
+    const previousSize = Math.max(1, Number(note.fontSize) || 18);
+    const scale = reference / previousSize;
+    const previousReference = Number(note.typefaceSize) || 18;
+    note = {
+      ...note,
+      typefaceSize: reference,
+      fontSize: reference,
+      width: Number.isFinite(note.width) ? note.width * scale : note.width,
+      textWidth: Number.isFinite(note.textWidth) ? note.textWidth * reference / previousReference : note.textWidth,
+      ...(Number.isFinite(note.textOffset) ? { textOffset: note.textOffset * scale } : {}),
+    };
+  }
   const textWidth = Number.isFinite(note.textWidth)
     ? note.textWidth
     : Math.max(1, (Number(note.width) - 34) * reference / Math.max(1, Number(note.fontSize) || reference));

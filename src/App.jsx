@@ -10,6 +10,10 @@ import { MESSAGE, PROTOCOL_SOURCE, isBridgeMessage } from "./protocol.js";
 let textMeasure;
 const measureText = (text, typefaceId) => (textMeasure ??= createTextMeasure())(text, typefaceId);
 
+function PaperTexture({ theme }) {
+  return theme.texture ? <img className="paper-texture" src={theme.texture} alt="" draggable="false" style={{ opacity: theme.textureOpacity }} /> : null;
+}
+
 function PaperStrip({ note, theme, sceneRef, cutting, onCut, onPickUp, onKeyMove, onRemove, inTray = false, drag, landingFrom, measuredTextWidth }) {
   const elementRef = useRef(null);
   const textRef = useRef(null);
@@ -473,7 +477,7 @@ export function App() {
           </div>
         </section>
         <div className="back-sheet" aria-hidden="true" />
-        <section className="poem-sheet" aria-label="Poem page" />
+        <section className="poem-sheet" aria-label="Poem page"><PaperTexture theme={theme} /></section>
         {notes.filter((note) => note.location !== "tray" && note.id !== drag?.note.id).map((note) => <PaperStrip key={note.id} note={note} theme={theme} sceneRef={sceneRef}
           cutting={cutting} onCut={cutNote} onPickUp={pickUpNote} onRemove={removeNote}
           measuredTextWidth={measuredTextWidths.get(note.id)}
@@ -494,7 +498,7 @@ export function App() {
           <p>A change of paper.</p>
           <div className="palette-list">{THEMES.map((item) => <button key={item.id} aria-label={item.name} title={item.name} aria-pressed={themeId === item.id}
             onClick={() => { setThemeId(item.id); setStyleOpen(false); styleRef.current?.focus(); }}>
-            <span className="palette-page" style={{ background: item.page }}><span style={{ background: item.strip, color: item.ink }}>Aa</span></span>
+            <span className="palette-page" style={{ background: item.page }}><PaperTexture theme={item} /><span style={{ background: item.strip, color: item.ink }}>Aa</span></span>
             <span className="palette-name">{item.name}</span>
           </button>)}</div>
         </div>}

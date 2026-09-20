@@ -172,6 +172,15 @@ button:disabled {
   transition: background-color 240ms ease;
 }
 
+.paper-texture {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
 .paper-strip {
   position: absolute;
   outline: none;
@@ -212,7 +221,7 @@ button:disabled {
 .paper-text {
   position: absolute;
   left: 50%;
-  top: 50%;
+  top: calc(50% + 1px);
   transform: translate(-50%, -50%);
   z-index: 1;
   font-family: var(--type-face, "Special Elite", Georgia, serif);
@@ -512,6 +521,7 @@ button:disabled {
 }
 
 .palette-page {
+  position: relative;
   display: grid;
   place-items: center;
   width: 76px;

@@ -7,11 +7,13 @@ export const LETTER = { width: 8.5, height: 11 };
 // page honest, and every consumer — the CSS sheets, isOnPage, the export — reads it from here.
 export const ARTBOARD = { x: 550, y: 68, width: 888 * LETTER.width / LETTER.height, height: 888 };
 export const THEMES = [
-  { id: "original", name: "Original", page: "#f5f1df", back: "#668a8e", strip: "#1a3b9e", ink: "#ffffff" },
-  { id: "tidal", name: "Tidal", page: "#668a8e", back: "#f5f1df", strip: "#f5f1df", ink: "#48413d" },
-  { id: "lilac", name: "Lilac", page: "#b09ac3", back: "#f2ac76", strip: "#f5f1df", ink: "#48413d" },
-  { id: "poppy", name: "Poppy", page: "#cd594b", back: "#d9b8da", strip: "#f5f1df", ink: "#48413d" },
-  { id: "midnight", name: "Midnight", page: "#253c59", back: "#c5b38a", strip: "#e8c77e", ink: "#253c59" },
+  { id: "original", name: "Original", page: "#f5f1e1", texture: "/assets/paper-original.png", textureOpacity: 0.5, back: "#668a8e", strip: "#2f5493", ink: "#ffffff" },
+  { id: "tidal", name: "Tidal", page: "#6e898d", texture: "/assets/paper-tidal.png", textureOpacity: 0.2, back: "#f5f1df", strip: "#f5f1df", ink: "#48413d" },
+  { id: "lilac", name: "Lilac", page: "#ad9bc0", texture: "/assets/paper-lilac.png", textureOpacity: 0.15, back: "#f2ac76", strip: "#f5f1df", ink: "#48413d" },
+  { id: "poppy", name: "Poppy", page: "#bf6051", back: "#d9b8da", strip: "#f5f1df", ink: "#48413d" },
+  { id: "midnight", name: "Midnight", page: "#2a3c57", texture: "/assets/paper-midnight.png", textureOpacity: 0.2, back: "#c5b38a", strip: "#e8c77e", ink: "#253c59" },
+  // Figma's black paper is translucent over the Colors & Typography frame's #464646.
+  { id: "monochrome", name: "Black & White", page: "#464646", texture: "/assets/paper-monochrome.png", textureOpacity: 0.54, back: "#cecece", strip: "#cecece", ink: "#1f1f1f" },
 ];
 const EXAMPLE_TEXT = [
   "the quiet between things", "stay", "a little longer", "blue", "as the afternoon",
@@ -97,9 +99,9 @@ export function isOnPage(note) {
   return x >= ARTBOARD.x && x <= ARTBOARD.x + ARTBOARD.width && y >= ARTBOARD.y && y <= ARTBOARD.y + ARTBOARD.height;
 }
 
-export function noteColors(note, theme) {
-  const onPage = note.location === "tray" ? false : note.colorSource ? note.colorSource === "page" : isOnPage(note);
-  return onPage ? { paper: theme.strip, ink: theme.ink } : { paper: "#1a3b9e", ink: "#ffffff" };
+export function noteColors(_note, theme) {
+  // Paper keeps the active palette in the tray, while dragging, and on the page.
+  return { paper: theme.strip, ink: theme.ink };
 }
 
 export function cutText(text, mode = "words") {
