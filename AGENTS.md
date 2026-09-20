@@ -41,3 +41,4 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 - The Extension minimum is Chrome 116 because context-menu auto-open depends on `chrome.sidePanel.open()`; the base Side Panel API exists in 114, but that method does not.
 - Main-site sidebar notes follow the active style's strip and ink colors, just like page notes. Keep those colors during dragging and cutting as well; position and legacy colorSource values must not switch a strip back to the fixed blue/white palette.
 - All main-site note text sits 1px below its previous vertically centered position, including sidebar and cut pieces. PNG export adds the same 1px downward shift to its existing baseline compensation (fillText y is now 2).
+- Change Style hover rotates the whole button (paper artwork and lettering together) by -3deg over 160ms; the lettering keeps its fixed angle relative to the artwork instead of animating separately.

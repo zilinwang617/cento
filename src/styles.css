@@ -412,6 +412,7 @@ button:disabled {
   top: 68px;
   width: 199px;
   height: 249px;
+  transition: transform 160ms ease;
 }
 
 .style-art {
@@ -440,11 +441,10 @@ button:disabled {
   line-height: 1.75;
   text-align: left;
   transform: rotate(1.94deg);
-  transition: transform 160ms ease;
 }
 
-.style-button:hover .style-lettering {
-  transform: rotate(-1deg);
+.style-button:hover {
+  transform: rotate(-3deg);
 }
 
 .export-button {
