@@ -1,94 +1,70 @@
 # Cento
 
-A desktop web application for arranging and cutting text strips on a canvas. Including a Chrome extension that allows you to collect any text on any website, and a main workspace to cut, arrange and piece together your own cut-up poem.
+Cento is a Chrome extension for collecting text from web pages and composing cut-up poetry. Selected text enters a side panel as paper strips. A dedicated Chrome tab provides a workspace for arranging, cutting, styling, and exporting a poem.
 
-## Team Members
+The extension runs locally in Chrome. It does not require a server during normal use, and it stores notes in `chrome.storage.local`.
 
-- Zilin Wang — [leowangsz@outlook.com](mailto:leowangsz@outlook.com)
-- Peter Ju — [peterju00004@gmail.com](mailto:peterju00004@gmail.com)
+## Requirements
 
+- Google Chrome 116 or later. Test extension behavior in Google Chrome.
+- Node.js 20.19 or later and npm for development and building.
 
-## Setup
+## Build and install the extension
 
-Install [Node.js](https://nodejs.org/) 20 or later and npm.
-
-## Install
+From the repository root:
 
 ```bash
 npm install
+npm run build:extension
 ```
 
-## Run locally
+The completed extension is in `dist/extension`. Load that directory in Chrome:
+
+1. Open `chrome://extensions` and enable **Developer mode**.
+2. Select **Load unpacked** and choose `dist/extension`.
+3. Confirm that **Cento** is enabled. Chrome may display a site-access notice because the collector reads selected text and typography on web pages.
+
+Chrome does not run content scripts on protected pages such as `chrome://extensions`.
+
+## Use Cento
+
+Open the Cento side panel from Chrome's Extensions menu. Select text on a web page and drag it into the panel, or right-click the selection and choose **Save to Cento**. Click **Assemble into a poem** to open the workspace in a Chrome tab. Subsequent clicks focus the existing workspace tab.
+
+In the workspace, drag strips onto the page, cut them between words, change the paper style, and export the composed page as a PNG. Collected notes remain available after closing the workspace tab or restarting Chrome. Removing the extension also removes its local data.
+
+## Development
+
+Run the Vite workspace preview with hot reload:
 
 ```bash
 npm run dev
 ```
 
-Open the local URL with Google Chrome browser printed in the terminal (usually `http://localhost:5173`).
+The preview is served at `http://localhost:5173`. It is intended for workspace UI development; extension storage and side panel synchronization are available in the installed extension build.
 
-## Chrome Extension
-
-The Cento extension is delivered as an unpacked Manifest V3 extension. Use **Google Chrome 116 or later** for development and acceptance testing; do not use thrid party browser including chrome-powered ones.
-
-### Build the Extension
-
-1. Install the project dependencies if you have not already done so:
-
-   ```bash
-   npm install
-   ```
-
-2. From the repository root, build the Extension:
-
-   ```bash
-   npm run build:extension
-   ```
-
-3. Confirm that the build completed with this message:
-
-   ```text
-   Extension ready: dist/extension
-   ```
-
-The directory to load into Chrome is `dist/extension`. Do not select the source `extension` directory.
-
-### Load  in Google Chrome
-
-1. Open Google Chrome and navigate to `chrome://extensions`.
-2. Turn on **Developer mode** in the top-right corner.
-3. Click **Load unpacked**.
-4. Select the repository's `dist/extension` directory.
-5. Find **Cento** in the extensions list and confirm that it is enabled.
-6. Optionally pin Cento from Chrome's Extensions menu. Clicking its toolbar icon opens the Side Panel.
-
-On first load, Chrome shows that Cento can read and change data on all sites. This permission is intentional: it allows the collector content script to read selected text and its font information on ordinary web pages. Chrome-protected pages such as `chrome://` pages do not allow content scripts.
-
-### Update a Loaded Development Build
-
-After changing Extension source code:
-
-```bash
-npm run build:extension
-```
-
-Then return to `chrome://extensions` and click the **Reload** button on the Cento card. Refresh any ordinary webpage you want to test so the updated collector content script is injected. You do not need to choose **Load unpacked** again unless the Extension was removed.
-
-For continuous local builds, use:
+For continuous extension builds, run:
 
 ```bash
 npm run dev:extension
 ```
 
-Chrome still needs to be reloaded from `chrome://extensions` after a relevant build change.
+After a build, reload Cento on `chrome://extensions`. Refresh any web page used to test the collector so Chrome injects the updated content script. If port 5173 is occupied, the Vite development server will fail to start.
 
-### Local Main-Site Connection
+## Verification
 
-The local main-site bridge is limited to `http://localhost/*` and `http://127.0.0.1/*`. The real extension profile starts with an empty document; the website's sample notes remain development-only.
+```bash
+npm test
+npm run build
+npm run build:extension
+```
 
-### Port
-To prevent port conflicts and maintain a consistent url that points to the webpage, the dev server strictly uses port 5173. If port 5173 is already taken, the dev server will fail to start: check which process is using the port and terminate it.
+`npm run build` also prepares the static client and worker artifacts used for a possible Sites handoff. The Chrome extension does not depend on those artifacts.
+
+## Contributors
+
+- Zilin Wang — [leowangsz@outlook.com](mailto:leowangsz@outlook.com)
+- Peter Ju — [peterju00004@gmail.com](mailto:peterju00004@gmail.com)
 
 ## License
 
-Copyright © 2026 Zilin Wang and Peter Ju. This project may be used, copied, and modified for non-commercial purposes only. Commercial use is prohibited without prior written permission from the copyright holders.
-
+Copyright © 2026 Zilin Wang and Peter Ju. This project may be used, copied, and modified for non-commercial purposes only. Commercial use requires prior written permission from the copyright holders.

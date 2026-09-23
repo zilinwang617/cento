@@ -1,4 +1,4 @@
-import { access, copyFile, mkdir, readFile, rm } from "node:fs/promises";
+import { access, copyFile, cp, mkdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
@@ -26,7 +26,10 @@ await build({
     emptyOutDir: false,
     watch: watchOption,
     rollupOptions: {
-      input: path.join(extensionRoot, "sidepanel.html"),
+      input: {
+        sidepanel: path.join(extensionRoot, "sidepanel.html"),
+        workspace: path.join(extensionRoot, "workspace.html"),
+      },
       output: { entryFileNames: "assets/[name]-[hash].js", chunkFileNames: "assets/[name]-[hash].js", assetFileNames: "assets/[name]-[hash][extname]" },
     },
   },
@@ -35,7 +38,6 @@ await build({
 for (const entry of [
   { source: "service-worker.js", format: "es" },
   { source: "collector.js", format: "iife", name: "CentoCollector" },
-  { source: "main-bridge.js", format: "iife", name: "CentoMainBridge" },
 ]) {
   await build({
     ...common,
@@ -55,19 +57,24 @@ for (const entry of [
 }
 
 await copyFile(path.join(extensionRoot, "manifest.json"), path.join(outDir, "manifest.json"));
-await copyFile(path.join(projectRoot, "public", "fonts", "special-elite.ttf"), path.join(outDir, "fonts", "special-elite.ttf"));
-await copyFile(path.join(projectRoot, "public", "fonts", "pacifico.ttf"), path.join(outDir, "fonts", "pacifico.ttf"));
-await copyFile(path.join(projectRoot, "public", "fonts", "abeezee.ttf"), path.join(outDir, "fonts", "abeezee.ttf"));
-await copyFile(path.join(projectRoot, "public", "fonts", "ABeeZee-OFL.txt"), path.join(outDir, "fonts", "ABeeZee-OFL.txt"));
-await copyFile(path.join(projectRoot, "public", "assets", "fortune-ends.svg"), path.join(outDir, "assets", "fortune-ends.svg"));
+await cp(path.join(projectRoot, "public", "fonts"), path.join(outDir, "fonts"), {
+  recursive: true,
+  filter: (source) => path.basename(source) !== ".DS_Store",
+});
+await cp(path.join(projectRoot, "public", "assets"), path.join(outDir, "assets"), {
+  recursive: true,
+  filter: (source) => path.basename(source) !== ".DS_Store",
+});
 await Promise.all([16, 32, 48, 128].map((size) => copyFile(
   path.join(extensionRoot, "icons", `icon-${size}.png`),
   path.join(outDir, "icons", `icon-${size}.png`),
 )));
 
 const manifest = JSON.parse(await readFile(path.join(outDir, "manifest.json"), "utf8"));
-const referenced = [manifest.background.service_worker, manifest.side_panel.default_path,
+const referenced = [manifest.background.service_worker, manifest.side_panel.default_path, "workspace.html",
   ...manifest.content_scripts.flatMap((script) => script.js ?? []),
   ...Object.values(manifest.icons ?? {}), ...Object.values(manifest.action?.default_icon ?? {})];
-await Promise.all(referenced.map((file) => access(path.join(outDir, file))));
+// A watch build returns its watcher before Rollup has written the first bundle. The individual
+// watchers report their own errors, while release builds keep the strict completeness check.
+if (!watch) await Promise.all(referenced.map((file) => access(path.join(outDir, file))));
 console.log(`Extension ready: ${path.relative(projectRoot, outDir)}${watch ? " (watching source entries)" : ""}`);

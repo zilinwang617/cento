@@ -14,7 +14,7 @@ function connect() {
     postToPage({ type: MESSAGE.error, code: "bridge-disconnected", message: "Reload this page to reconnect the Cento Extension." });
     return;
   }
-  try { port = chrome.runtime.connect({ name: "cento-main-site" }); }
+  try { port = chrome.runtime.connect({ name: "cento-workspace" }); }
   catch {
     port = null;
     postToPage({ type: MESSAGE.error, code: "bridge-disconnected", message: "Reload this page to reconnect the Cento Extension." });

@@ -9,7 +9,6 @@ import "./sidepanel.css";
 import { FortuneEnds } from "../../src/FortuneEnds.jsx";
 import "../../src/fortune.css";
 
-const CANVAS_URL = "http://localhost:5173/";
 const UNKNOWN_META = { source: { url: "", title: "", capturedAt: "" }, typography: { sourceFontStack: "", category: "unknown", confidence: 0 } };
 const layoutSettings = (width) => ({ width, top: 0, bottom: 0, padding: 20, gapX: 14, gapY: 18, startY: 18, edge: 58, speed: 520 });
 
@@ -234,8 +233,9 @@ function SidePanel() {
     submit({ type: "drop", id, location: "tray", beforeNoteId: beforeNoteIdAt(documentRef.current, id, next) });
   };
 
-  const openCanvas = () => {
-    chrome.tabs.create({ url: CANVAS_URL });
+  const openCanvas = async () => {
+    const result = await chrome.runtime.sendMessage({ type: MESSAGE.openWorkspace }).catch(() => null);
+    if (!result?.ok) announce(result?.message || "The workspace could not be opened.");
   };
 
   return <main className={`side-panel${externalDrag ? " is-receiving" : ""}`}

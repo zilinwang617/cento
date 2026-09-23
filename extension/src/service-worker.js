@@ -6,13 +6,34 @@ const DRAG_KEY = "centoDragCandidate";
 const PENDING_KEY = "centoPendingCaptures";
 const ports = new Set();
 let commandQueue = Promise.resolve();
+let openingWorkspace = null;
 
-const isMainOrigin = (value) => {
+const isWorkspacePage = (value) => {
   try {
     const url = new URL(value);
-    return url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname);
+    const workspace = new URL(chrome.runtime.getURL("workspace.html"));
+    return url.origin === workspace.origin && url.pathname === workspace.pathname;
   } catch { return false; }
 };
+
+function openWorkspace() {
+  if (openingWorkspace) return openingWorkspace;
+  openingWorkspace = (async () => {
+    const url = chrome.runtime.getURL("workspace.html");
+    // Service workers are restarted by Chrome, so an in-memory tab ID is not reliable.
+    const contexts = await chrome.runtime.getContexts({ contextTypes: ["TAB"], documentUrls: [url] });
+    for (const context of contexts) {
+      if (context.tabId < 0) continue;
+      try {
+        const tab = await chrome.tabs.get(context.tabId);
+        await chrome.windows.update(tab.windowId, { focused: true });
+        return chrome.tabs.update(tab.id, { active: true });
+      } catch { /* The tab closed between discovery and focus. */ }
+    }
+    return chrome.tabs.create({ url });
+  })().finally(() => { openingWorkspace = null; });
+  return openingWorkspace;
+}
 
 async function readDocument() {
   const stored = await chrome.storage.local.get(DOCUMENT_KEY);
@@ -61,8 +82,8 @@ function applyCommand(port, message) {
 }
 
 chrome.runtime.onConnect.addListener((port) => {
-  if (!["cento-sidepanel", "cento-main-site"].includes(port.name)) return;
-  if (port.name === "cento-main-site" && !isMainOrigin(port.sender?.url)) { port.disconnect(); return; }
+  if (!["cento-sidepanel", "cento-workspace"].includes(port.name)) return;
+  if (port.name === "cento-workspace" && !isWorkspacePage(port.sender?.url)) { port.disconnect(); return; }
   ports.add(port);
   port.onDisconnect.addListener(() => ports.delete(port));
   port.onMessage.addListener((message) => {
@@ -97,6 +118,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     chrome.storage.session.get(PENDING_KEY).then((stored) => chrome.storage.session.set({
       [PENDING_KEY]: prunePending(stored[PENDING_KEY] ?? []).filter((item) => item.id !== message.id),
     })).then(() => sendResponse({ ok: true }));
+    return true;
+  }
+  if (message?.type === MESSAGE.openWorkspace) {
+    openWorkspace()
+      .then((tab) => sendResponse({ ok: true, tabId: tab.id }))
+      .catch((error) => sendResponse({ ok: false, message: error?.message || "Could not open the workspace." }));
     return true;
   }
   return false;

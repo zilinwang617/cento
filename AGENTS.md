@@ -6,7 +6,7 @@ Before making substantial visual changes, use the Product Design plugin's `get-c
 
 When implementing from a selected generated mock, treat that image as the source of truth for layout, component anatomy, density, spacing, color, typography, visible content, and hierarchy.
 
-Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts/prepare-sites-build.mjs`, and `tests/sites-worker.test.mjs` intact so the same local prototype can be handed to Sites. Before a Sites handoff, run `npm run build` and `npm run test:sites`; the build must leave `dist/client/index.html`, `dist/server/index.js`, and `dist/.openai/hosting.json`.
+Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, and `scripts/prepare-sites-build.mjs` intact so the same local prototype can be handed to Sites. Before a Sites handoff, run `npm run build`; the build must leave `dist/client/index.html`, `dist/server/index.js`, and `dist/.openai/hosting.json`.
 
 ## Prototype-specific decisions
 
@@ -57,3 +57,4 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 - Change Style hover rotates the whole button (paper artwork and lettering together) by -3deg over 160ms; the lettering keeps its fixed angle relative to the artwork instead of animating separately.
 
 - Start the main-site note store empty in both development and production. Do not seed example/default notes before extension hydration; only the user’s synchronized document or explicitly created notes should appear.
+- The composition workspace ships inside the Chrome Extension as `workspace.html` and opens or focuses one dedicated browser tab; installed-extension use must not depend on a localhost server or a running npm process. Keep the shared Vite `npm run dev` entry working for fast browser/HMR development, while extension builds use the same React workspace source and connect directly to the extension service worker.

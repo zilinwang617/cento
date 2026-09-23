@@ -34,11 +34,6 @@
       "js": ["collector.js"],
       "all_frames": true,
       "run_at": "document_idle"
-    },
-    {
-      "matches": ["http://localhost/*", "http://127.0.0.1/*"],
-      "js": ["main-bridge.js"],
-      "run_at": "document_start"
     }
   ]
 }

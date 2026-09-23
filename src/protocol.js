@@ -2,7 +2,7 @@ export const PROTOCOL_SOURCE = Object.freeze({ main: "cento-main", extension: "c
 export const MESSAGE = Object.freeze({
   hello: "HELLO", snapshot: "SNAPSHOT", command: "COMMAND", ack: "ACK", error: "ERROR",
   candidate: "CAPTURE_CANDIDATE", resolveDrag: "RESOLVE_DRAG", getPending: "GET_PENDING", consumePending: "CONSUME_PENDING",
-  getSelectionMeta: "GET_SELECTION_META", pending: "PENDING_CAPTURE",
+  getSelectionMeta: "GET_SELECTION_META", pending: "PENDING_CAPTURE", openWorkspace: "OPEN_WORKSPACE",
 });
 
 export function isBridgeMessage(value, source) {
